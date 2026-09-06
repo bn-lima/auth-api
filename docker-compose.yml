@@ -1,0 +1,24 @@
+services:
+  db:
+    container_name: auth_api_db
+    image: postgres:16
+    env_file:
+      .env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: always
+
+  api:
+    container_name: auth_api
+    volumes:
+      - .:/app
+    restart: always
+    depends_on:
+      - db
+    env_file:
+      .env
+    build:
+      .
+
+volumes:
+  postgres_data
