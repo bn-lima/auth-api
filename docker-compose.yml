@@ -7,6 +7,13 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     restart: always
+    ports:
+      - 5432:5432
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   api:
     container_name: auth_api
@@ -14,11 +21,15 @@ services:
       - .:/app
     restart: always
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+        
     env_file:
       .env
     build:
       .
+    ports:
+      - 8000:8000
 
 volumes:
-  postgres_data
+  postgres_data:  

@@ -7,11 +7,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 load_dotenv()
 
-RENDER_POSTGRES_DB=os.getenv("RENDER_POSTGRES_DB")
-RENDER_POSTGRES_USER=os.getenv("RENDER_POSTGRES_USER")
-RENDER_POSTGRES_PASSWORD=os.getenv("RENDER_POSTGRES_PASSWORD")
-RENDER_POSTGRES_HOST=os.getenv("RENDER_POSTGRES_HOST")
-RENDER_POSTGRES_PORT=os.getenv("RENDER_POSTGRES_PORT")
+POSTGRES_DB = os.getenv("POSTGRES_DB")
+POSTGRES_USER = os.getenv("POSTGRES_USER")
+POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
+POSTGRES_HOST = os.getenv("POSTGRES_HOST")
+POSTGRES_PORT = os.getenv("POSTGRES_PORT")
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
@@ -24,6 +24,7 @@ DEBUG = os.getenv('DEBUG') == 'True'
 
 ALLOWED_HOSTS = [
     os.getenv("RENDER_EXTERNAL_HOSTNAME"),
+    'localhost'
 ]
 
 # Application definition
@@ -36,6 +37,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'corsheaders',
+    'accounts'
 ]
 
 MIDDLEWARE = [
@@ -75,14 +77,13 @@ WSGI_APPLICATION = 'auth_api.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': RENDER_POSTGRES_DB,
-        'HOST': RENDER_POSTGRES_HOST,
-        'USER': RENDER_POSTGRES_USER,
-        'PASSWORD': RENDER_POSTGRES_PASSWORD,
-        'PORT': RENDER_POSTGRES_PORT
+        'NAME': POSTGRES_DB,
+        'HOST': POSTGRES_HOST,
+        'USER': POSTGRES_USER,
+        'PASSWORD': POSTGRES_PASSWORD,
+        'PORT': POSTGRES_PORT
     }
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/6.1/ref/settings/#auth-password-validators
@@ -118,8 +119,8 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.1/howto/static-files/
 
-STATIC_URL = '/static/'
-
+STATIC_URL = "/static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
@@ -139,3 +140,7 @@ MEDIA_URL = "/media/"
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
 ]
+
+# Account
+
+AUTH_USER_MODEL = "accounts.Account"
