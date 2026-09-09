@@ -1,7 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework import permissions, status
 from rest_framework.response import Response
-from .serializers import RegisterAccountSerializer
+from .serializers import RegisterAccountSerializer, LoginAccountSerializer
 
 class RegisterAccountView(APIView): # Registra um usuário
     permission_classes = [permissions.AllowAny]
@@ -13,3 +13,21 @@ class RegisterAccountView(APIView): # Registra um usuário
         serializer.save()
 
         return Response({"message": "account created successfully"}, status=status.HTTP_201_CREATED)
+
+class LoginAccountView(APIView): # Loga um usuário
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request, *args, **kwargs):
+
+        serializer = LoginAccountSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        access_token, refresh_token = serializer.save()
+
+        return Response( # Retorna refresh e access token na resposta
+            {
+                "message": "login was successfully",
+                "access_token": access_token,
+                "refresh_token": refresh_token
+            },
+            status=status.HTTP_200_OK
+        )
