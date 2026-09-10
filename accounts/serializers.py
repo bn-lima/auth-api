@@ -2,6 +2,8 @@ from rest_framework import serializers
 from .models import Account
 from .validators import PASSWORD_VALIDATOR
 from .services import authenticate_account, generate_account_tokens
+from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.tokens import RefreshToken
 
 class RegisterAccountSerializer(serializers.ModelSerializer): # Serializer responsável por registrar usuário
     # Campo de confirmação de senha
@@ -58,3 +60,25 @@ class LoginAccountSerializer(serializers.Serializer): # Serializer responsável 
         access_token, refresh_token = generate_account_tokens(account) # Cria access_token e refresh_token relacionado a conta
 
         return access_token, refresh_token
+
+class RefreshTokenSerializer(serializers.Serializer): # Gera novo token de acesso
+    refresh_token = serializers.CharField(
+        max_length=600,
+        required=True,
+        write_only=True
+    )
+
+    def validate(self, data):
+
+        try:
+            refresh = RefreshToken(data.get("refresh_token")) # Verifica se refresh_token é válido
+        except TokenError:
+            raise serializers.ValidationError("invalid refresh_token")
+
+        data["refresh"] = refresh
+        return data
+
+    def save(self, **kwargs):
+        refresh = self.validated_data.get("refresh")
+
+        return str(refresh.access_token) # Devolve novo token de acesso
