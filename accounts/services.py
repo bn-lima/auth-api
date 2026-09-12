@@ -1,6 +1,7 @@
 from .models import Account
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.token_blacklist.models import OutstandingToken, BlacklistedToken
 
 def authenticate_account(email, password): # Verifica se existe um usuário com as credenciais passadas
     account = authenticate(email=email, password=password) # Verifica se o usuário existe no banco
@@ -13,3 +14,9 @@ def generate_account_tokens(account): # Gera tokens de autenticação para o usu
     refresh = RefreshToken.for_user(account) # Gera refresh_token para o usuário
 
     return str(refresh.access_token), str(refresh) # Retorna refresh e access token
+
+def revoke_account_refresh_tokens(account): # Desativa todos os refresh tokens do usuário
+    tokens = OutstandingToken.objects.filter(user=account)
+
+    for token in tokens:
+        BlacklistedToken.objects.get_or_create(token=token)

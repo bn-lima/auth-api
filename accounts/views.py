@@ -2,6 +2,7 @@ from rest_framework.views import APIView
 from rest_framework import permissions, status
 from rest_framework.response import Response
 from .serializers import RegisterAccountSerializer, LoginAccountSerializer, RefreshTokenSerializer
+from .services import revoke_account_refresh_tokens
 
 class RegisterAccountView(APIView): # Registra um usuário
     permission_classes = [permissions.AllowAny]
@@ -47,4 +48,13 @@ class RefreshTokenView(APIView): # Gera um novo token de acesso para o usuário
                 "new_access_token": new_access_token
             },
             status=status.HTTP_200_OK
-        )        
+        )
+
+class LogoutAccountView(APIView): # Realiza logout
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+
+        revoke_account_refresh_tokens(request.user)
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
