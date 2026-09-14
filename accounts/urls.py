@@ -1,5 +1,5 @@
 from django.urls import path, include
-from .views import RegisterAccountView, LoginAccountView, RefreshTokenView, LogoutAccountView, ResetPasswordRequestView
+from .views import RegisterAccountView, LoginAccountView, RefreshTokenView, LogoutAccountView, ResetPasswordRequestView, ForgotPasswordView
 
 urlpatterns = [
     path("register/", RegisterAccountView.as_view(), name="register_account"), # Registra uma conta
@@ -9,7 +9,8 @@ urlpatterns = [
 
     path("password/", include([
         path("reset/", include([
-            path("request/", ResetPasswordRequestView.as_view(), name="request_password_reset") # Requisita uma troca de senha
+            path("request/", ResetPasswordRequestView.as_view(), name="request_password_reset"),# Requisita uma troca de senha
+            path("forgot/", ForgotPasswordView.as_view(), name="forgot_password_request") # Requisita troca de senha para usuários não logados
         ]))
     ]))
 ]

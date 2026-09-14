@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import Account
 from .validators import PASSWORD_VALIDATOR
-from .services import authenticate_account, generate_account_tokens
+from .services import authenticate_account, generate_account_tokens, expire_account_reset_password_tokens, get_account_by_email
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 from .models import ResetPasswordToken
@@ -90,20 +90,44 @@ class ResetPasswordRequestSerializer(serializers.Serializer): # Cria reset passw
     def validate(self, data):
         account = self.context.get("account")
 
-        if account.reset_password_tokens.filter( # Verifica se a conta possui 3 tokens de reset ativos
-            active=True,
-            expired=False
-        ).count() >=3:
+        expire_account_reset_password_tokens(account)
 
+        if account.has_too_many_reset_tokens(): # Verifica se a conta possui 3 ou mais tokens de reset de senha
             raise serializers.ValidationError("You have reached the limit of 3 active password reset requests")
 
         data["account"] = account # Adiciona account nos dados validados
         return data
 
     def create(self, validated_data):
-        account = self.validated_data.get("account")
+        account = validated_data.get("account")
 
         reset_token = ResetPasswordToken.objects.create(account=account) # Cria objeto reset token
         send_test_email(account.email, reset_token.key) # Envia email de recuperação
+
+        return reset_token
+
+class ForgotPasswordSerializer(serializers.Serializer): # Cria reset password e envia por email (para usuários não logados) 
+    email = serializers.EmailField(max_length=250, required=True)
+
+    def validate(self, data):
+        account = get_account_by_email(data.get("email")) # Verifica se uma conta com esse email existe
+
+        if not account: # Retorna erro caso não exista
+            raise serializers.ValidationError("An account with this email does not exist")
+
+        expire_account_reset_password_tokens(account) # Inativa os tokens de reset de senha expirados
+
+        if account.has_too_many_reset_tokens(): # Verifica se a conta possui 3 ou mais tokens de reset de senha
+            raise serializers.ValidationError("You have reached the limit of 3 active password reset requests")
+
+        data["account"] = account
+        return data
+
+    def create(self, validated_data):
+        account = validated_data.get("account")
+
+        reset_token = ResetPasswordToken.objects.create(account=account) # Cria token de reset de senha
+
+        send_test_email(account.email, reset_token.key) # Envia o token para o email do usuário
 
         return reset_token
