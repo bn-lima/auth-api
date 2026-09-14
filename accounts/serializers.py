@@ -4,6 +4,8 @@ from .validators import PASSWORD_VALIDATOR
 from .services import authenticate_account, generate_account_tokens
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
+from .models import ResetPasswordToken
+from .email import send_test_email
 
 class RegisterAccountSerializer(serializers.ModelSerializer): # Serializer responsável por registrar usuário
     # Campo de confirmação de senha
@@ -82,3 +84,26 @@ class RefreshTokenSerializer(serializers.Serializer): # Gera novo token de acess
         refresh = self.validated_data.get("refresh")
 
         return str(refresh.access_token) # Devolve novo token de acesso
+
+class ResetPasswordRequestSerializer(serializers.Serializer): # Cria reset password e envia por email
+
+    def validate(self, data):
+        account = self.context.get("account")
+
+        if account.reset_password_tokens.filter( # Verifica se a conta possui 3 tokens de reset ativos
+            active=True,
+            expired=False
+        ).count() >=3:
+
+            raise serializers.ValidationError("You have reached the limit of 3 active password reset requests")
+
+        data["account"] = account # Adiciona account nos dados validados
+        return data
+
+    def create(self, validated_data):
+        account = self.validated_data.get("account")
+
+        reset_token = ResetPasswordToken.objects.create(account=account) # Cria objeto reset token
+        send_test_email(account.email, reset_token.key) # Envia email de recuperação
+
+        return reset_token
