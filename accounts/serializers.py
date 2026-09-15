@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import Account
 from .validators import PASSWORD_VALIDATOR
-from .services import authenticate_account, generate_account_tokens, expire_account_reset_password_tokens, get_account_by_email
+from .services import authenticate_account, generate_account_tokens, expire_account_reset_password_tokens, get_account_by_email, validate_reset_password_token, deactivate_all_account_reset_password_tokens
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 from .models import ResetPasswordToken
@@ -131,3 +131,38 @@ class ForgotPasswordSerializer(serializers.Serializer): # Cria reset password e 
         send_test_email(account.email, reset_token.key) # Envia o token para o email do usuário
 
         return reset_token
+
+class ResetPasswordSerializer(serializers.Serializer): # Serializer responsável por trocar a senha da conta
+    new_password = serializers.CharField(max_length=128, validators=[PASSWORD_VALIDATOR], write_only=True)
+    confirm_new_password = serializers.CharField(max_length=128, validators=[PASSWORD_VALIDATOR], write_only=True)
+
+    def validate(self, data):
+        str_reset_token = self.context.get("reset_token") # Pega a string do token de reset passado na view
+
+        reset_token = validate_reset_password_token(str_reset_token) # Valida o token de reset
+
+        if not reset_token: # Verifica se o token é válido
+            raise serializers.ValidationError("invalid reset_token")
+
+        new_password = data.get("new_password") # Pega a nova senha
+
+        if new_password != data.get("confirm_new_password"): # Verifica se as senhas são iguais
+            raise serializers.ValidationError("passwords do not match")
+
+        account = reset_token.account # Pega a conta relacionada ao token de reset
+
+        if account.check_password(new_password): # Verifica se a senha atual é igual a nova senha
+            raise serializers.ValidationError("the new password cannot be the same as your current password")
+
+        data["account"] = account 
+        return data
+
+    def save(self, **kwargs):
+        account = self.validated_data.get("account") # Pega a conta dos dados validados
+
+        account.set_password(self.validated_data.get("new_password")) # Define nova senha
+        account.save(update_fields=["password"])
+        # Desativa todos os reset password tokens da conta
+        deactivate_all_account_reset_password_tokens(account)
+
+        return account

@@ -1,8 +1,9 @@
-from .models import Account
+from .models import Account, ResetPasswordToken
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.token_blacklist.models import OutstandingToken, BlacklistedToken
 from django.utils import timezone
+import uuid
 
 def authenticate_account(email, password): # Verifica se existe um usuário com as credenciais passadas
     account = authenticate(email=email, password=password) # Verifica se o usuário existe no banco
@@ -39,3 +40,33 @@ def get_account_by_email(email): # Pega account pelo email
     except Account.DoesNotExist:
         return None
     return account
+
+def validate_reset_password_token(str_reset_token): # Valida reset password token
+
+    try:
+        uuid_reset_token = uuid.UUID(str_reset_token) # Verifica se o formato é válido
+    except ValueError:
+        return None
+
+    try:
+        reset_token = ResetPasswordToken.objects.get(key=uuid_reset_token) # Verifica se existe um token com esse uuid no banco
+    except ResetPasswordToken.DoesNotExist:
+        return None
+
+    if reset_token.expires_at <= timezone.now(): # Verifica se o token expirou e marca como inativo
+        reset_token.expired = True
+        reset_token.active = False
+        reset_token.save(update_fields=["expired", "active"])
+        return None
+
+    if not reset_token.active: # Verifica se o token está ativo
+        return None
+    
+    return reset_token
+
+def deactivate_all_account_reset_password_tokens(account): # Desativa todos os tokens da conta
+
+    account.reset_password_tokens.filter(
+        active=True,
+        expired=False
+    ).update(active=False)

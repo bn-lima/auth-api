@@ -128,7 +128,7 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
 
 
-if not DEBUG: ############################################################
+if DEBUG:
     MAILERS = {
         'default': {
             'BACKEND': 'django.core.mail.backends.console.EmailBackend',

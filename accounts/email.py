@@ -2,7 +2,7 @@ from django.core.mail import EmailMessage
 
 def send_test_email(email, reset_token): # Envia email de reset de senha
     # MUDAR A URL PARA PRODUÇÃO
-    url = f"http://localhost:8000/account/password/reset/?{reset_token}"
+    url = f"http://localhost:8000/account/password/reset/{reset_token}"
 
     email_message = EmailMessage(
         subject="Password Reset Request",
