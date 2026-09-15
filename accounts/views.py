@@ -1,7 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework import permissions, status
 from rest_framework.response import Response
-from .serializers import RegisterAccountSerializer, LoginAccountSerializer, RefreshTokenSerializer, ResetPasswordRequestSerializer, ForgotPasswordSerializer
+from .serializers import RegisterAccountSerializer, LoginAccountSerializer, RefreshTokenSerializer, ResetPasswordRequestSerializer, ForgotPasswordSerializer, ResetPasswordSerializer
 from .services import revoke_account_refresh_tokens
 
 class RegisterAccountView(APIView): # Registra um usuário
@@ -80,3 +80,17 @@ class ForgotPasswordView(APIView): # Requisita reset de senha (para usuários n�
         serializer.save()
 
         return Response({"message": "an email with a reset link was sent to you"}, status=status.HTTP_200_OK)
+
+class ResetPasswordView(APIView): # View responsável por mudar a senha de uma conta
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request, reset_token, *args, **kwargs):
+
+        if not reset_token:
+            return Response({"detail": "reset_token is required as a query parameter"}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = ResetPasswordSerializer(data=request.data, context={"reset_token":reset_token})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response({"message": "password updated successfully"}, status=status.HTTP_200_OK)
