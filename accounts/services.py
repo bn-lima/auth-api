@@ -66,7 +66,7 @@ def validate_reset_password_token(str_reset_token): # Valida reset password toke
 
 def deactivate_all_account_reset_password_tokens(account): # Desativa todos os tokens da conta
 
-    account.reset_password_tokens.filter(
+    account.reset_password_tokens.filter( # Filtra tokens ativos e os desativa
         active=True,
         expired=False
     ).update(active=False)
