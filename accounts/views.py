@@ -94,3 +94,9 @@ class ResetPasswordView(APIView): # View responsável por mudar a senha de uma c
         serializer.save()
 
         return Response({"message": "password updated successfully"}, status=status.HTTP_200_OK)
+
+class IsAuthenticated(APIView): # Testa se o usuário está autenticado
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        return Response({"message": "you are authenticated"})
