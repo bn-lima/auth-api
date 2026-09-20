@@ -10,3 +10,13 @@ class AccountDetailSerializer(serializers.ModelSerializer): # Mostra os detalhes
 
     def get_account_id(self, obj):
         return int(obj.id)
+
+class AccountsListSerializer(serializers.ModelSerializer): # Lista as contas
+    account_id = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Account
+        fields = ("account_id", "username", "email", "profile")
+
+    def get_account_id(self, obj): # Pega o id de cada conta
+        return int(obj.id)
