@@ -6,6 +6,7 @@ from .filters import AccountsListFilterSet
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from .pagination import AccountsListPagination
 
 class AccountsListView(ListAPIView): # Lista as contas
     permission_classes = [permissions.IsAdminUser]
@@ -13,6 +14,7 @@ class AccountsListView(ListAPIView): # Lista as contas
     serializer_class = AccountsListSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_class = AccountsListFilterSet
+    pagination_class = AccountsListPagination
 
 class AccountDetailView(RetrieveAPIView): # Mostra os detalhes de uma conta
     permission_classes = [permissions.IsAdminUser]
