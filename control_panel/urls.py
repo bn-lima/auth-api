@@ -1,5 +1,5 @@
 from django.urls import path, include
-from .views import AccountDetailView, AccountsListView, DeleteAccountView
+from .views import AccountDetailView, AccountsListView, DeleteAccountView, UpdateAccountView
 
 urlpatterns = [
     path("account/", include([
@@ -7,7 +7,8 @@ urlpatterns = [
         
         path("<int:pk>/", include([
             path("detail/", AccountDetailView.as_view(), name="account_detail"), # Mostra os detalhes de uma conta
-            path("delete/", DeleteAccountView.as_view(), name="delete_account") # Deleta uma conta
+            path("delete/", DeleteAccountView.as_view(), name="delete_account"), # Deleta uma conta
+            path("update/", UpdateAccountView.as_view(), name="update_account") # Atualiza os dados de uma conta
         ]))
     ]))
 ]
