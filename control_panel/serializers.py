@@ -20,3 +20,21 @@ class AccountsListSerializer(serializers.ModelSerializer): # Lista as contas
 
     def get_account_id(self, obj): # Pega o id de cada conta
         return int(obj.id)
+
+class DeleteAccountSerializer(serializers.Serializer): # Serializer responsável por deletar uma conta
+    confirmation_password = serializers.CharField(required=True, max_length=128, write_only=True)
+
+    def validate(self, data):
+        authenticated_account = self.context.get("authenticated_account")
+        #Verifica se a senha de confirmação está correta
+        if not authenticated_account.check_password(data.get("confirmation_password")):
+            raise serializers.ValidationError("invalid confirmation_password")
+
+        return data
+
+    def save(self, **kwargs):
+        selected_account = self.context.get("selected_account") # Pega a conta que será deletada
+
+        selected_account.delete() # Deleta a conta
+
+        return True
