@@ -1,7 +1,7 @@
 from rest_framework.generics import RetrieveAPIView, ListAPIView, UpdateAPIView
 from accounts.models import Account
 from rest_framework import permissions, status
-from .serializers import AccountDetailSerializer, AccountsListSerializer, DeleteAccountSerializer, UpdateAccountSerializer
+from .serializers import AccountDetailSerializer, AccountsListSerializer, DeleteAccountSerializer, UpdateAccountSerializer, CreateAccountSerializer
 from .filters import AccountsListFilterSet
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.views import APIView
@@ -56,3 +56,14 @@ class UpdateAccountView(UpdateAPIView): # Atualiza os dados de uma conta
         }
 
         return super().get_serializer(*args, **kwargs)
+
+class CreateAccountView(APIView): # Cria uma conta
+    permission_classes = [permissions.IsAdminUser]
+
+    def post(self, request, *args, **kwargs):
+
+        serializer = CreateAccountSerializer(data=request.data, context={"authenticated_account": request.user})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response({"message": "account created successfully", "account":serializer.data}, status=status.HTTP_201_CREATED)
