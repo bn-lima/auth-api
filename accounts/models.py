@@ -7,8 +7,8 @@ from .validators import CPF_VALIDATOR, PHONE_VALIDATOR
 
 class Account(AbstractUser): # Modelo de usuário
     profile = models.ImageField(default="accounts/default.png", blank=True, null=True)
-    cpf = models.CharField(max_length=11, null=True, blank=True, validators=[CPF_VALIDATOR])
-    phone = models.CharField(max_length=11, null=True, blank=True, validators=[PHONE_VALIDATOR])
+    cpf = models.CharField(max_length=11, null=True, blank=True, validators=[CPF_VALIDATOR], unique=True)
+    phone = models.CharField(max_length=11, null=True, blank=True, validators=[PHONE_VALIDATOR], unique=True)
     email = models.EmailField(max_length=250, unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

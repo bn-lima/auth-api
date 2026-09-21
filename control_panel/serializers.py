@@ -6,7 +6,7 @@ class AccountDetailSerializer(serializers.ModelSerializer): # Mostra os detalhes
 
     class Meta:
         model = Account
-        fields = ("account_id", "email", "username", "profile", "created_at", "is_staff")
+        fields = ("account_id", "email", "username", "profile", "cpf", "phone", "created_at", "is_staff")
 
     def get_account_id(self, obj):
         return int(obj.id)
@@ -45,7 +45,7 @@ class UpdateAccountSerializer(serializers.ModelSerializer): # Atualiza os dados 
 
     class Meta:
         model = Account
-        fields = ("username", "email", "profile", "confirmation_password")
+        fields = ("username", "email", "profile", "confirmation_password", "cpf", "phone")
 
         extra_kwargs = { # Deixa os campos como não obrigatórios
             "username": {"required": False},
