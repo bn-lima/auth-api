@@ -3,8 +3,8 @@ from .models import Account, ResetPasswordToken
 
 @admin.register(Account)
 class AccountAdmin(admin.ModelAdmin):
-    list_display = ("username", "email", "profile")
-    search_fields = ("username", "email")
+    list_display = ("username", "email", "profile", "cpf", "phone")
+    search_fields = ("username", "email", "cpf", "phone")
 
 @admin.register(ResetPasswordToken)
 class ResetPasswordTokenAdmin(admin.ModelAdmin):
