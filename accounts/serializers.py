@@ -13,7 +13,7 @@ class RegisterAccountSerializer(serializers.ModelSerializer): # Serializer respo
 
     class Meta:
         model = Account
-        fields = ("username", "email", "password", "confirm_password", "profile")
+        fields = ("username", "email", "password", "confirm_password", "profile", "cpf", "phone")
 
         extra_kwargs = {
             "password": {
