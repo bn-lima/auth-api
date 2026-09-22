@@ -14,3 +14,8 @@ PHONE_VALIDATOR = RegexValidator(
     regex=r'^\d{10,11}$',
     message='Phone number must contain 10 or 11 digits.'
 )
+
+EMAIL_VALIDATOR = RegexValidator(
+    regex=r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$",
+    message="Enter a valid email address."
+)

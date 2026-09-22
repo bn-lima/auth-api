@@ -1,46 +1,54 @@
 from rest_framework import serializers
-from .models import Account
-from .validators import PASSWORD_VALIDATOR
+from .models import Account, PendingAccountRegistration, PendingRegistrationToken
+from .validators import PASSWORD_VALIDATOR, EMAIL_VALIDATOR
 from .services import authenticate_account, generate_account_tokens, expire_account_reset_password_tokens, get_account_by_email, validate_reset_password_token, deactivate_all_account_reset_password_tokens
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 from .models import ResetPasswordToken
-from .email import send_test_email
+from .email import send_password_reset_email, send_registration_request_email
 
-class RegisterAccountSerializer(serializers.ModelSerializer): # Serializer responsável por registrar usuário
-    # Campo de confirmação de senha
-    confirm_password = serializers.CharField(max_length=128, validators=[PASSWORD_VALIDATOR], write_only=True)
-
-    class Meta:
-        model = Account
-        fields = ("username", "email", "password", "confirm_password", "profile", "cpf", "phone")
-
-        extra_kwargs = {
-            "password": {
-                "validators": [PASSWORD_VALIDATOR] # Define um validator no campo password
-            }
-        }
+class RequestAccountRegistrationSerializer(serializers.Serializer): # ializer responsável por solicitar registro de conta
+    email = serializers.CharField(
+        max_length=250,
+        validators=[EMAIL_VALIDATOR],
+        required=True
+    )
 
     def validate(self, data):
-        if data.get("password") != data.get("confirm_password"): # Verifica se as senhas são iguais
-            raise serializers.ValidationError("passwords do not match")
 
-        return data
+        if Account.objects.filter(email=data.get("email")).exists(): # Verifica se já existe uma conta com esse email
+            raise serializers.ValidationError("An account with this email already exists")
 
-    def create(self, validated_data):   
-        # Removo password e confirm_password dos dados validados
-        password = validated_data.pop("password")
-        validated_data.pop("confirm_password")
-
-        account = Account.objects.create( # Cria usuário sem senha
-            **validated_data
+        pending_registration, created = PendingAccountRegistration.objects.get_or_create( # Pega ou cria pending_registration com o email passado
+            email=data.get("email")
         )
 
-        # Define senha de forma segura e salva o usuário criado
-        account.set_password(password)
-        account.save()
+        if not created: # Verifica se o registro foi criado agora
 
-        return account
+            if pending_registration.delete_if_expired(): # Deleta o registro se estiver expirado
+                raise serializers.ValidationError("The registration request has expired. Please request a new registration")
+            
+            pending_registration.expire_registration_tokens() # Desativa tokens de registro expirados
+
+            if pending_registration.count_active_registration_tokens() >= 3: # Verifica se o registro possui 3 ou mais tokens ativos
+                raise serializers.ValidationError("Maximum of 3 active registration tokens reached for this email address")
+
+        data["pending_registration"] = pending_registration
+        return data
+
+    def save(self, **kwargs):
+        pending_registration = self.validated_data.get("pending_registration") # Pega pending_registration dos dados validados
+
+        registration_token = PendingRegistrationToken.objects.create( # Cria token de registro associado a pending_registration
+            pending_registration=pending_registration,
+        )
+
+        send_registration_request_email( # Envia link de registro por email
+            pending_registration.email,
+            registration_token.key
+        )
+
+        return registration_token
 
 class LoginAccountSerializer(serializers.Serializer): # Serializer responsável por logar o usuário
     email = serializers.EmailField(max_length=250, required=True)
@@ -102,7 +110,7 @@ class ResetPasswordRequestSerializer(serializers.Serializer): # Cria reset passw
         account = validated_data.get("account")
 
         reset_token = ResetPasswordToken.objects.create(account=account) # Cria objeto reset token
-        send_test_email(account.email, reset_token.key) # Envia email de recuperação
+        send_password_reset_email(account.email, reset_token.key) # Envia email de recuperação
 
         return reset_token
 
@@ -128,7 +136,7 @@ class ForgotPasswordSerializer(serializers.Serializer): # Cria reset password e 
 
         reset_token = ResetPasswordToken.objects.create(account=account) # Cria token de reset de senha
 
-        send_test_email(account.email, reset_token.key) # Envia o token para o email do usuário
+        send_password_reset_email(account.email, reset_token.key) # Envia o token para o email do usuário
 
         return reset_token
 

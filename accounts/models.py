@@ -27,9 +27,58 @@ class Account(AbstractUser): # Modelo de usuário
             return True
         return False
 
-def get_expiration_time():
+def get_pending_registration_expiration(): # Pega a data de expiração para PendingAccountRegistration
+    return timezone.now() + timedelta(hours=24)
+
+def get_expiration_time(): # Pega a data de expiração para tokens
     return timezone.now() + timedelta(minutes=15)
 
+class PendingAccountRegistration(models.Model): # Modelo que representa um registro de conta pendente
+    email = models.EmailField(max_length=250, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(default=get_pending_registration_expiration)
+
+    def expire_registration_tokens(self): # Desativa tokens de registro expirados
+
+        self.registration_tokens.filter( # Filtra tokens ativos que estão expirados
+            expires_at__lte=timezone.now(),
+            active=True,
+            expired=False
+        ).update( # Desativa os tokens filtrados
+            active=False,
+            expired=True
+        )
+
+    def count_active_registration_tokens(self): # Conta os tokens de registro ativos
+
+        tokens = self.registration_tokens.filter( # Filtra tokens ativos
+            expires_at__gte=timezone.now(),
+            expired=False,
+            active=True
+        )
+
+        return tokens.count() # Retorna a quantidade de tokens
+
+    def delete_if_expired(self): # Verifica se o registro está expirado e deleta
+        if self.expires_at < timezone.now():
+            self.delete()
+            return True
+        return False
+
+    def __str__(self):
+        return str(self.email)
+
+class PendingRegistrationToken(models.Model):
+    pending_registration = models.ForeignKey(PendingAccountRegistration, on_delete=models.CASCADE, related_name="registration_tokens")
+    key = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(default=get_expiration_time)
+    expired = models.BooleanField(default=False)
+    active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return str(self.key)
+    
 class ResetPasswordToken(models.Model): # Token de redefinição de senha
     account = models.ForeignKey(Account, on_delete=models.CASCADE, related_name="reset_password_tokens")
     created_at = models.DateTimeField(auto_now_add=True)

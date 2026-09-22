@@ -1,19 +1,19 @@
 from rest_framework.views import APIView
 from rest_framework import permissions, status
 from rest_framework.response import Response
-from .serializers import RegisterAccountSerializer, LoginAccountSerializer, RefreshTokenSerializer, ResetPasswordRequestSerializer, ForgotPasswordSerializer, ResetPasswordSerializer
+from .serializers import LoginAccountSerializer, RefreshTokenSerializer, ResetPasswordRequestSerializer, ForgotPasswordSerializer, ResetPasswordSerializer, RequestAccountRegistrationSerializer
 from .services import revoke_account_refresh_tokens
 
-class RegisterAccountView(APIView): # Registra um usuário
+class RequestAccountRegistrationView(APIView): # Solicita registro de conta
     permission_classes = [permissions.AllowAny]
 
     def post(self, request, *args, **kwargs):
 
-        serializer = RegisterAccountSerializer(data=request.data)
+        serializer = RequestAccountRegistrationSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
-        return Response({"message": "account created successfully"}, status=status.HTTP_201_CREATED)
+        return Response({"message": "A verification link has been sent to your email"}, status=status.HTTP_200_OK)
 
 class LoginAccountView(APIView): # Loga um usuário
     permission_classes = [permissions.AllowAny]
