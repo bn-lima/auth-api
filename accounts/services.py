@@ -1,4 +1,4 @@
-from .models import Account, ResetPasswordToken
+from .models import Account, ResetPasswordToken, PendingRegistrationToken
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.token_blacklist.models import OutstandingToken, BlacklistedToken
@@ -70,3 +70,31 @@ def deactivate_all_account_reset_password_tokens(account): # Desativa todos os t
         active=True,
         expired=False
     ).update(active=False)
+
+def validate_registration_token(str_registration_token): # Valida objeto PendingRegistrationToken
+    # Tenta converter a string recebida para um UUID válido
+    try: 
+        uuid_registration_token = uuid.UUID(str_registration_token)
+    except ValueError:
+        return None
+    # Busca o token no banco de dados usando o UUID
+    try: 
+        registration_token = PendingRegistrationToken.objects.get(key=uuid_registration_token)
+    except PendingRegistrationToken.DoesNotExist:
+        return None
+    # Verifica se o token já está expirado ou desativado
+    if registration_token.expired or  not registration_token.active:
+        return None
+    # Verifica se a data de expiração já passou
+    if registration_token.expires_at < timezone.now():
+        registration_token.expired = True
+        registration_token.active = False
+         # Salva somente os campos que foram alterados
+        registration_token.save(update_fields=["expired", "active"])
+        return None
+    # Retorna o token se ele ainda for válido
+    return registration_token
+
+def complete_registration(registration_token): # Finaliza a confirmação de registro
+    # Deleta registro pendente
+    registration_token.pending_registration.delete()

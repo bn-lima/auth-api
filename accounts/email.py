@@ -14,7 +14,7 @@ def send_password_reset_email(email, reset_token): # Envia email de reset de sen
 
 def send_registration_request_email(email, registration_token): # Envia email para registrar a conta
     # MUDAR A URL PARA PRODUÇÃO
-    url = f"http://localhost:8000/account/register/{registration_token}/"
+    url = f"http://localhost:8000/account/register/confirm/{registration_token}/"
     
     email_message = EmailMessage(
         subject="Account Registration Request",

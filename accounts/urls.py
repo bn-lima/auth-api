@@ -1,9 +1,10 @@
 from django.urls import path, include
-from .views import LoginAccountView, RefreshTokenView, LogoutAccountView, ResetPasswordRequestView, ForgotPasswordView, ResetPasswordView, IsAuthenticated, RequestAccountRegistrationView
+from .views import LoginAccountView, RefreshTokenView, LogoutAccountView, ResetPasswordRequestView, ForgotPasswordView, ResetPasswordView, IsAuthenticated, RequestAccountRegistrationView, ConfirmAccountRegistrationView
 
 urlpatterns = [
     path("register/", include([
-        path("request/", RequestAccountRegistrationView.as_view(), name="request_account_registration") # Solicita registro de conta por email
+        path("request/", RequestAccountRegistrationView.as_view(), name="request_account_registration"), # Solicita registro de conta por email
+        path("confirm/<str:registration_token>/", ConfirmAccountRegistrationView.as_view(), name="cofirm_account_registration"), # Confirma registro de conta
     ])),
 
     path("login/", LoginAccountView.as_view(), name="login_account"), # Loga um usuário

@@ -1,11 +1,12 @@
 from rest_framework import serializers
 from .models import Account, PendingAccountRegistration, PendingRegistrationToken
 from .validators import PASSWORD_VALIDATOR, EMAIL_VALIDATOR
-from .services import authenticate_account, generate_account_tokens, expire_account_reset_password_tokens, get_account_by_email, validate_reset_password_token, deactivate_all_account_reset_password_tokens
+from .services import authenticate_account, generate_account_tokens, expire_account_reset_password_tokens, get_account_by_email, validate_reset_password_token, deactivate_all_account_reset_password_tokens, validate_registration_token, complete_registration
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 from .models import ResetPasswordToken
 from .email import send_password_reset_email, send_registration_request_email
+from django.db import transaction
 
 class RequestAccountRegistrationSerializer(serializers.Serializer): # ializer responsável por solicitar registro de conta
     email = serializers.CharField(
@@ -49,6 +50,68 @@ class RequestAccountRegistrationSerializer(serializers.Serializer): # ializer re
         )
 
         return registration_token
+
+class ConfirmAccountRegistrationSerializer(serializers.ModelSerializer): # Confirma o registro de uma conta
+    confirm_password = serializers.CharField( # Campo para confirmação de senha 
+        max_length=250,
+        required=True,
+        write_only=True,
+        validators=[PASSWORD_VALIDATOR]
+    )
+    class Meta:
+        model = Account
+        exclude = ("created_at", "email")
+
+        extra_kwargs = { # Adiciona validador de senha no campo password
+            "password": {
+                "validators":[PASSWORD_VALIDATOR]
+            }
+        }
+
+    def validate(self, data):
+        # Pega registration_token do context
+        str_registration_token = self.context.get("registration_token")
+
+        # Verifica se o token passado é válido
+        registration_token = validate_registration_token(str_registration_token)
+
+        # Retorna erro caso seja inválido
+        if not registration_token:
+            raise serializers.ValidationError("invalid registration_token")
+        
+        # Verifica se password e confirm_password são iguais
+        if data.get("password") != data.get("confirm_password"):
+            raise serializers.ValidationError("passwords do not match")
+
+        # Verifica se existe um usuário com o mesmo username
+        if Account.objects.filter(username=data.get("username")).exists():
+            raise serializers.ValidationError("an account with this username already exists")
+        
+        # Adiciona registration_token nos dados validados
+        data["registration_token"] = registration_token
+        return data
+
+    @transaction.atomic()
+    def create(self, validated_data):
+        registration_token_id = validated_data.pop("registration_token") # Remove registration_token dos dados validados e armazena na variável registration_token_id
+        password = validated_data.pop("password") # Remove password dos dados validados e adiciona na variável password
+        validated_data.pop("confirm_password") # Remove confirm_password dos dados validados
+
+        # Busca o token de registro e seu pending_registration relacionado  
+        registration_token = PendingRegistrationToken.objects.select_for_update(
+        ).select_related("pending_registration").get(id=registration_token_id.id)
+
+        account = Account.objects.create( # Cria conta sem senha
+            **validated_data,
+            email=registration_token.pending_registration.email
+        )
+
+        account.set_password(password) # Define senha criptografada
+        account.save(update_fields=["password"]) # Salva a conta com a senha definida
+
+        complete_registration(registration_token) # Finaliza a confirmação de registro
+
+        return account
 
 class LoginAccountSerializer(serializers.Serializer): # Serializer responsável por logar o usuário
     email = serializers.EmailField(max_length=250, required=True)
