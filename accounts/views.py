@@ -1,8 +1,9 @@
 from rest_framework.views import APIView
 from rest_framework import permissions, status
 from rest_framework.response import Response
-from .serializers import LoginAccountSerializer, RefreshTokenSerializer, ResetPasswordRequestSerializer, ForgotPasswordSerializer, ResetPasswordSerializer, RequestAccountRegistrationSerializer, ConfirmAccountRegistrationSerializer
+from .serializers import LoginAccountSerializer, RefreshTokenSerializer, ResetPasswordRequestSerializer, ForgotPasswordSerializer, ResetPasswordSerializer, RequestAccountRegistrationSerializer, ConfirmAccountRegistrationSerializer, AddPhoneNumberSerializer
 from .services import revoke_account_refresh_tokens
+from .models import Account
 
 class RequestAccountRegistrationView(APIView): # Solicita registro de conta
     permission_classes = [permissions.AllowAny]
@@ -115,3 +116,20 @@ class IsAuthenticated(APIView): # Testa se o usuário está autenticado
 
     def get(self, request, *args, **kwargs):
         return Response({"message": "you are authenticated"})
+
+class AddPhoneNumberView(APIView): # Envia código de sms
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+
+        serializer = AddPhoneNumberSerializer(
+            data=request.data,
+            context={
+                "authenticated_account": request.user
+            }
+        )
+
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response({"message": "an sms code was sent to you"})

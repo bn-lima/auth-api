@@ -98,3 +98,16 @@ def validate_registration_token(str_registration_token): # Valida objeto Pending
 def complete_registration(registration_token): # Finaliza a confirmação de registro
     # Deleta registro pendente
     registration_token.pending_registration.delete()
+
+def invalidate_expired_sms_codes(account): # Desativa sms codes expirados de uma determinada conta
+    account.sms_codes.filter(
+        active=True,
+        expired=False,
+        expires_at__lte=timezone.now()
+    ).update(
+        active=False,
+        expired=True
+    )
+
+def is_phone_used(phone):
+    return Account.objects.filter(phone=phone).exists()

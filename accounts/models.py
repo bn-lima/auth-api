@@ -19,14 +19,18 @@ class Account(AbstractUser): # Modelo de usuário
         return f'{self.email} - {self.username}'
 
     def has_too_many_reset_tokens(self): # Verifica se a conta tem 3 ou mais tokens de reset de senha ativos
-        if self.reset_password_tokens.filter(
+        return self.reset_password_tokens.filter(
             active=True,
             expired=False,
             expires_at__gte=timezone.now()
-        ).count() >=3:
-            return True
-        return False
+        ).count() >=3
 
+    def has_too_many_sms_codes(self): # Verifica se a conta tem 3 ou mais códigos de sms ativos
+        return  self.sms_codes.filter(
+            active=True,
+            expired=False
+        ).count() >=3
+ 
 def get_pending_registration_expiration(): # Pega a data de expiração para PendingAccountRegistration
     return timezone.now() + timedelta(hours=24)
 
@@ -97,3 +101,32 @@ class ResetPasswordToken(models.Model): # Token de redefinição de senha
 
     def __str__(self):
         return f"{self.account.email} - {self.key}"
+
+class SMSCode(models.Model):
+
+    account = models.ForeignKey(Account, on_delete=models.CASCADE, related_name="sms_codes")
+    code = models.CharField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(default=get_expiration_time)
+    active = models.BooleanField(default=True)
+    expired = models.BooleanField(default=False)
+
+    def set_code(self):
+        from .sms import get_sms_code # Importado dentro do método para evitar importação circular
+
+        sms_code = get_sms_code() # Gera um novo código SMS
+
+        while not sms_code:
+            sms_code = get_sms_code() # Gera outro código caso o código gerado já esteja em uso
+
+        self.code = sms_code # Define o código no objeto
+
+    def save(self, *args, **kwargs):
+        # Gera um código caso o objeto ainda não possua um
+        if not self.code:
+            self.set_code()
+
+        return super().save(*args, **kwargs) # Salva o objeto no banco de dados
+
+    def __str__(self):
+        return f"{self.account.email} - {self.code}"
