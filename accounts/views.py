@@ -1,7 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework import permissions, status
 from rest_framework.response import Response
-from .serializers import LoginAccountSerializer, RefreshTokenSerializer, ResetPasswordRequestSerializer, ForgotPasswordSerializer, ResetPasswordSerializer, RequestAccountRegistrationSerializer, ConfirmAccountRegistrationSerializer, AddPhoneNumberSerializer
+from .serializers import LoginAccountSerializer, RefreshTokenSerializer, ResetPasswordRequestSerializer, ForgotPasswordSerializer, ResetPasswordSerializer, RequestAccountRegistrationSerializer, ConfirmAccountRegistrationSerializer, AddPhoneNumberSerializer, ConfirmPhoneNumberSerializer
 from .services import revoke_account_refresh_tokens
 from .models import Account
 
@@ -132,4 +132,18 @@ class AddPhoneNumberView(APIView): # Envia código de sms
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
-        return Response({"message": "an sms code was sent to you"})
+        return Response({"message": "an sms code was sent to you"}, status=status.HTTP_200_OK)
+
+class ConfirmPhoneNumberView(APIView): # Confirma número de telefone
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+
+        serializer = ConfirmPhoneNumberSerializer(
+            data=request.data,
+            context={"authenticated_account":request.user}
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response({"message": "phone updated successfully"}, status=status.HTTP_200_OK)

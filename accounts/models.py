@@ -3,7 +3,7 @@ from django.contrib.auth.models import AbstractUser
 import uuid
 from django.utils import timezone
 from datetime import timedelta
-from .validators import CPF_VALIDATOR, PHONE_VALIDATOR
+from .validators import CPF_VALIDATOR, PHONE_VALIDATOR, SMS_CODE_VALIDATOR
 
 class Account(AbstractUser): # Modelo de usuário
     profile = models.ImageField(default="accounts/default.png", blank=True, null=True)
@@ -105,7 +105,8 @@ class ResetPasswordToken(models.Model): # Token de redefinição de senha
 class SMSCode(models.Model):
 
     account = models.ForeignKey(Account, on_delete=models.CASCADE, related_name="sms_codes")
-    code = models.CharField(null=True, blank=True)
+    phone = models.CharField(max_length=11, null=True, blank=True, validators=[PHONE_VALIDATOR])
+    code = models.CharField(null=True, blank=True, validators=[SMS_CODE_VALIDATOR])
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField(default=get_expiration_time)
     active = models.BooleanField(default=True)

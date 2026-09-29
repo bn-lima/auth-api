@@ -1,5 +1,5 @@
 from django.urls import path, include
-from .views import LoginAccountView, RefreshTokenView, LogoutAccountView, ResetPasswordRequestView, ForgotPasswordView, ResetPasswordView, IsAuthenticated, RequestAccountRegistrationView, ConfirmAccountRegistrationView, AddPhoneNumberView
+from .views import LoginAccountView, RefreshTokenView, LogoutAccountView, ResetPasswordRequestView, ForgotPasswordView, ResetPasswordView, IsAuthenticated, RequestAccountRegistrationView, ConfirmAccountRegistrationView, AddPhoneNumberView, ConfirmPhoneNumberView
 
 urlpatterns = [
     path("register/", include([
@@ -21,6 +21,7 @@ urlpatterns = [
     ])),
 
     path("phone/", include([
-        path("send-code/", AddPhoneNumberView.as_view(), name="send_sms_code")
+        path("send-code/", AddPhoneNumberView.as_view(), name="send_sms_code"),
+        path("confirm/", ConfirmPhoneNumberView.as_view(), name="confirm_account_phone")
     ]))
 ]

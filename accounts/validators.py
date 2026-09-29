@@ -19,3 +19,8 @@ EMAIL_VALIDATOR = RegexValidator(
     regex=r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$",
     message="Enter a valid email address."
 )
+
+SMS_CODE_VALIDATOR = RegexValidator(
+    regex=r'^\d{6}$',
+    message='The SMS code must contain exactly 6 digits.'
+)

@@ -1,13 +1,13 @@
 from rest_framework import serializers
 from .models import Account, PendingAccountRegistration, PendingRegistrationToken
-from .validators import PASSWORD_VALIDATOR, EMAIL_VALIDATOR, PHONE_VALIDATOR
+from .validators import PASSWORD_VALIDATOR, EMAIL_VALIDATOR, PHONE_VALIDATOR, SMS_CODE_VALIDATOR
 from .services import authenticate_account, generate_account_tokens, expire_account_reset_password_tokens, get_account_by_email, validate_reset_password_token, deactivate_all_account_reset_password_tokens, validate_registration_token, complete_registration, invalidate_expired_sms_codes, is_phone_used
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 from .models import ResetPasswordToken, SMSCode
 from .email import send_password_reset_email, send_registration_request_email
 from django.db import transaction
-from .sms import send_sms_code
+from .sms import send_sms_code, get_valid_account_sms_code, deactivate_account_sms_codes
 
 class RequestAccountRegistrationSerializer(serializers.Serializer): # ializer responsável por solicitar registro de conta
     email = serializers.CharField(
@@ -248,9 +248,6 @@ class AddPhoneNumberSerializer(serializers.Serializer): # Envia código de sms
     def validate(self, data):
         authenticated_account = self.context.get("authenticated_account")
 
-        for sms in authenticated_account.sms_codes.all():
-            sms.delete()
-
         if is_phone_used(data.get("phone")): # Verifica se o número está sendo usado por alguma conta
             raise serializers.ValidationError("an account with this phone number already exists")
 
@@ -267,6 +264,7 @@ class AddPhoneNumberSerializer(serializers.Serializer): # Envia código de sms
 
         sms = SMSCode.objects.create( # Cria objeto SMSCode relacionado ao usuário logado
             account=authenticated_account,
+            phone=validated_data.get("phone")
         )
 
         send_sms_code( # Envia código de sms
@@ -275,3 +273,33 @@ class AddPhoneNumberSerializer(serializers.Serializer): # Envia código de sms
         )
 
         return SMSCode.code
+
+class ConfirmPhoneNumberSerializer(serializers.Serializer): # Confirma número de telefone e define ao usuário logado
+    verification_code = serializers.CharField( # Código de verificação enviado por sms
+        required=True,
+        validators=[SMS_CODE_VALIDATOR]
+    )
+
+    def validate(self, data):
+        authenticated_account = self.context.get("authenticated_account") # Pega o usuário logado pelo context
+
+        invalidate_expired_sms_codes(authenticated_account) # Invalida todos os sms_codes expirados
+
+        sms_code =  get_valid_account_sms_code(data.get("verification_code"), authenticated_account) # Verifica se o sms_code passado é válido
+
+        if not sms_code: # Retorna erro caso não seja válido
+            raise serializers.ValidationError("invalid verification_code")
+
+        data["sms_code"] = sms_code # Adiciona sms_code nos dados validados
+        return data
+
+    def save(self, **kwargs):
+        sms_code = self.validated_data.get("sms_code")
+        account = sms_code.account # Pega a conta relacionada ao sms_code
+
+        account.phone = sms_code.phone # Define o número de telefone relacionado ao sms_code para o usuário
+        account.save(update_fields=["phone"])
+
+        deactivate_account_sms_codes(account) # Desativa todos os sms_codes relacionados ao usuário
+
+        return account

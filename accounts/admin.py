@@ -25,6 +25,6 @@ class PendingRegistrationTokenAdmin(admin.ModelAdmin):
 
 @admin.register(SMSCode)
 class SMSCodeAdmin(admin.ModelAdmin):
-    list_display = ("account__email", "code", "created_at", "expires_at", "active", "expired")
-    search_fields = ("account__email", "code", "created_at", "expires_at")
+    list_display = ("account__email", "code", "phone", "created_at", "expires_at", "active", "expired")
+    search_fields = ("account__email", "code", "phone", "created_at", "expires_at")
     list_filter = ("active", "expired")
