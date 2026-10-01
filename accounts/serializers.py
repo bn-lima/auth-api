@@ -61,7 +61,7 @@ class ConfirmAccountRegistrationSerializer(serializers.ModelSerializer): # Confi
     )
     class Meta:
         model = Account
-        exclude = ("created_at", "email")
+        exclude = ("created_at", "email", "phone", "groups", "user_permissions")
 
         extra_kwargs = { # Adiciona validador de senha no campo password
             "password": {

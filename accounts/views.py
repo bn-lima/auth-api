@@ -3,7 +3,6 @@ from rest_framework import permissions, status
 from rest_framework.response import Response
 from .serializers import LoginAccountSerializer, RefreshTokenSerializer, ResetPasswordRequestSerializer, ForgotPasswordSerializer, ResetPasswordSerializer, RequestAccountRegistrationSerializer, ConfirmAccountRegistrationSerializer, AddPhoneNumberSerializer, ConfirmPhoneNumberSerializer
 from .services import revoke_account_refresh_tokens
-from .models import Account
 
 class RequestAccountRegistrationView(APIView): # Solicita registro de conta
     permission_classes = [permissions.AllowAny]
