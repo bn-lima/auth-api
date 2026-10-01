@@ -1,7 +1,20 @@
 from django.test import TestCase
-from accounts.models import PendingAccountRegistration, PendingRegistrationToken
+from accounts.models import PendingAccountRegistration, PendingRegistrationToken, Account
 
-class AccountTestCase(TestCase):    
+class AccountTestCase(TestCase):
+
+    def setUp(self):
+
+        self.account = Account.objects.create( # Cria usuário para testes
+            username="test_uuser",
+            email="test_uuser@gmail.com"
+        )
+
+        self.account.set_password("12345678") # Define senha na conta
+        self.account.save(update_fields=["password"]) # Salva a senha
+        
+        return super().setUp()
+
      # Faz uma requisição POST para iniciar o cadastro de uma conta
     def request_account_registration(self, email):
         return self.client.post( 
@@ -17,6 +30,7 @@ class AccountTestCase(TestCase):
             f"/account/register/confirm/{registration_token}/", # Monta a URL usando o token de confirmação
             payload # Dados enviados para confirmar o cadastro
         )
+
     # Busca no banco de dados um cadastro pendente pelo e-mail
     def get_pending_registration(self, email):
         return PendingAccountRegistration.objects.filter(
@@ -73,5 +87,21 @@ class AccountTestCase(TestCase):
 
         # Verifica se a confirmação do cadastro retornou HTTP 201
         self.assertEqual(response.status_code, 201)
-        
-    
+
+    # Testa o login de uma conta existente
+    def test_login_account(self):
+
+         # Dados enviados na requisição de login
+        payload = {
+            "email": "test_uuser@gmail.com",
+            "password": "12345678"
+        }
+
+        # Envia uma requisição POST para o endpoint de login
+        response = self.client.post(
+            "/account/login/",
+            payload
+        )
+
+        # Verifica se o login foi realizado com sucesso
+        self.assertEqual(response.status_code, 200)
