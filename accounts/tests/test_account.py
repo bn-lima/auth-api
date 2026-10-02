@@ -30,6 +30,14 @@ class AccountTestCase(TestCase):
             f"/account/register/confirm/{registration_token}/", # Monta a URL usando o token de confirmação
             payload # Dados enviados para confirmar o cadastro
         )
+    
+    # Envia uma requisição POST para o endpoint de login
+    def request_login_account(self, payload):
+
+        return self.client.post(
+            "/account/login/",
+            payload
+        )
 
     # Busca no banco de dados um cadastro pendente pelo e-mail
     def get_pending_registration(self, email):
@@ -97,11 +105,32 @@ class AccountTestCase(TestCase):
             "password": "12345678"
         }
 
-        # Envia uma requisição POST para o endpoint de login
-        response = self.client.post(
-            "/account/login/",
-            payload
-        )
+        response = self.request_login_account(payload)
 
         # Verifica se o login foi realizado com sucesso
+        self.assertEqual(response.status_code, 200)
+
+    def test_refresh_token(self):
+
+        # Dados usados para realizar o login da conta
+        payload = { 
+            "email": "test_uuser@gmail.com",
+            "password": "12345678"
+        }
+
+         # Realiza o login e armazena a resposta da requisição
+        login_response = self.request_login_account(payload) 
+
+        # Obtém o refresh token retornado no login
+        refresh_token = login_response.data["refresh_token"]
+
+        # Envia o refresh token para o endpoint responsável por gerar um novo access token
+        response = self.client.post(
+            "/account/refresh/",
+            {
+                "refresh_token": refresh_token
+            }
+        )
+
+         # Verifica se a requisição foi processada com sucesso
         self.assertEqual(response.status_code, 200)
