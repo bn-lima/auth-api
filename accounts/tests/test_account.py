@@ -39,6 +39,16 @@ class AccountTestCase(TestCase):
             payload
         )
 
+    # Envia uma requisição para o enpoint responsável por gerar um novo access_token
+    def request_refresh_token(self, refresh_token):
+
+        return self.client.post(
+            "/account/refresh/",
+            {
+                "refresh_token": refresh_token
+            }
+        )
+
     # Busca no banco de dados um cadastro pendente pelo e-mail
     def get_pending_registration(self, email):
         return PendingAccountRegistration.objects.filter(
@@ -125,12 +135,37 @@ class AccountTestCase(TestCase):
         refresh_token = login_response.data["refresh_token"]
 
         # Envia o refresh token para o endpoint responsável por gerar um novo access token
-        response = self.client.post(
-            "/account/refresh/",
-            {
-                "refresh_token": refresh_token
-            }
-        )
+
+        response = self.request_refresh_token(refresh_token)
 
          # Verifica se a requisição foi processada com sucesso
         self.assertEqual(response.status_code, 200)
+
+    def test_logout_account(self):
+        # Dados usados para realizar o login
+        payload = {
+            "email": "test_uuser@gmail.com",
+            "password": "12345678"
+        }
+
+        # Realiza o login e obtém os tokens
+        login_response = self.request_login_account(payload)
+        access_token = login_response.data["access_token"]
+        refresh_token = login_response.data["refresh_token"]
+
+        # Realiza o logout usando o access token
+        response = self.client.post(
+            "/account/logout/",
+            HTTP_AUTHORIZATION = f"Bearer {access_token}"
+        )   
+
+         # Verifica se o logout foi realizado com sucesso
+        self.assertEqual(response.status_code, 204)
+
+          # Tenta utilizar o refresh token após o logout
+        refresh_token_response = self.request_refresh_token(refresh_token)
+
+        # Verifica se o refresh token foi invalidado
+        self.assertEqual(
+            refresh_token_response.status_code, 400
+        )
