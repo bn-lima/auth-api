@@ -16,7 +16,7 @@ urlpatterns = [
         path("reset/", include([
             path("request/", ResetPasswordRequestView.as_view(), name="request_password_reset"),# Requisita uma troca de senha
             path("forgot/", ForgotPasswordView.as_view(), name="forgot_password_request"), # Requisita troca de senha para usuários não logados
-            path("<str:reset_token>", ResetPasswordView.as_view(), name="reset_account_password") # Troca a senha da conta
+            path("<str:reset_token>/", ResetPasswordView.as_view(), name="reset_account_password") # Troca a senha da conta
         ]))
     ])),
 

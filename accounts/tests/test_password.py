@@ -26,6 +26,13 @@ class PasswordTestCase(TestCase):
             HTTP_AUTHORIZATION = f"Bearer {access_token}"
         )
 
+    def request_reset_password(self, reset_token, payload):
+
+        return self.client.post(
+            f"/account/password/reset/{reset_token}/",
+            payload
+        )
+
     def login_account_and_get_auth_tokens(self, email, password):  # Realiza o login e retorna os tokens de autenticação
 
         response = self.client.post(  # Envia uma requisição para o endpoint de login
@@ -55,3 +62,42 @@ class PasswordTestCase(TestCase):
         ).first()
 
         self.assertTrue(reset_token)  # Verifica se o token de reset foi criado
+
+    def test_reset_password(self): # Testa troca de senha
+
+        access_token, _ = self.login_account_and_get_auth_tokens( # Pega o access_token da conta
+            self.default_email,
+            self.default_password
+        )
+        # Envia uma requisição para endpoint responsável por gerar uma solicitação de troca de senha
+        reset_request_response = self.request_password_reset(access_token)
+
+        self.assertEqual(reset_request_response.status_code, 200) # Verifica se a requisição foi aceita
+
+        reset_token = ResetPasswordToken.objects.filter(  # Busca o token de reset associado à conta
+            account=self.account
+        ).first()
+
+        self.assertTrue(reset_token) # Verifica se reset_token existe
+
+        payload = { # Cria payload que será enviado para o endpoint de troca de senha
+            "new_password":"11111111",
+            "confirm_new_password": "11111111"
+        }
+
+        response = self.request_reset_password( # Faz uma requisição para o endpoint de troca de senha
+            reset_token.key,
+            payload
+        )
+
+        self.assertEqual(response.status_code, 200) # Verifica se a troca de senha foi bem sucedida
+
+        login_response = self.client.post( # Tenta fazer login com a nova senha
+            "/account/login/",
+            {
+                "email": self.default_email,
+                "password": "11111111"
+            }
+        )
+
+        self.assertEqual(login_response.status_code, 200) # Verica se o login foi feito com sucesso
