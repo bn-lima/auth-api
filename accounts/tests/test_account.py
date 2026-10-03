@@ -5,14 +5,17 @@ class AccountTestCase(TestCase):
 
     def setUp(self):
 
+        self.default_email = "test_user@gmail.com"  # Define o e-mail padrão utilizado nos testes
+        self.default_password = "12345678"  # Define a senha padrão utilizada nos testes
+        
         self.account = Account.objects.create( # Cria usuário para testes
-            username="test_uuser",
-            email="test_uuser@gmail.com"
+            username="test_user",
+            email=self.default_email
         )
 
-        self.account.set_password("12345678") # Define senha na conta
+        self.account.set_password(self.default_password) # Define senha na conta
         self.account.save(update_fields=["password"]) # Salva a senha
-        
+
         return super().setUp()
 
      # Faz uma requisição POST para iniciar o cadastro de uma conta
@@ -168,4 +171,30 @@ class AccountTestCase(TestCase):
         # Verifica se o refresh token foi invalidado
         self.assertEqual(
             refresh_token_response.status_code, 400
+        )
+
+    def test_account_authenticated(self):
+        # Define os dados da conta que será utilizada para realizar o login
+        payload = {
+            "email": self.default_email,
+            "password": self.default_password
+        }
+         # Realiza o login e pega a resposta contendo o access token
+        login_response = self.request_login_account(payload)
+
+        # Verifica se o login foi realizado com sucesso
+        self.assertEqual(login_response.status_code, 200)
+
+         # Pega o access token retornado pela requisição
+        access_token = login_response.data["access_token"]
+
+        # Faz uma requisição para verificar se a conta está autenticada enviando o access_token
+        response = self.client.get(
+            "/account/authenticated/",
+            HTTP_AUTHORIZATION = f"Bearer {access_token}"
+        )
+        # Verifica a requisição foi um sucesso
+        self.assertEqual(
+            response.status_code,
+            200
         )
