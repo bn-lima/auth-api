@@ -63,6 +63,27 @@ class PasswordTestCase(TestCase):
 
         self.assertTrue(reset_token)  # Verifica se o token de reset foi criado
 
+    # Testa a solicitação de recuperação de senha (PARA USUÁRIOS NÃO LOGADOS)
+    def test_forgot_password(self):
+
+        response = self.client.post( # Envia o email da conta para solicitar a recuperação
+            "/account/password/reset/forgot/",
+            {
+                "email": self.default_email
+            }
+        )
+
+        # Verifica se a solicitação foi aceita
+        self.assertEqual(response.status_code, 200)
+
+        # Busca o token de recuperação associado à conta
+        reset_token = ResetPasswordToken.objects.filter(
+            account=self.account
+        ).first()
+
+        # Verifica se o token de recuperação foi criado
+        self.assertTrue(reset_token)
+
     def test_reset_password(self): # Testa troca de senha
 
         access_token, _ = self.login_account_and_get_auth_tokens( # Pega o access_token da conta
