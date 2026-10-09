@@ -71,3 +71,37 @@ class ControlPanelTestCase(TestCase): # Classe de testes do painel de controle
 
         # Verifica se a requisição foi bem sucedida
         self.assertEqual(response.status_code, 200)
+
+    def test_delete_account(self): # Testa a exclusão de uma conta
+
+        test_account = Account.objects.create(
+            email="test_account2@gmail.com",
+            username = "test_account2"
+        )
+
+        # Realiza login e obtém o access_token
+        access_token = self.login_and_get_access_token(
+            self.default_email,
+            self.default_password
+        )
+
+        # Verifica se o access_token foi obtido
+        self.assertTrue(access_token)
+
+        # Envia uma requisição DELETE para excluir a conta
+        response = self.client.delete(
+            f"/control-panel/account/{test_account.id}/delete/",
+            data={"confirmation_password":self.default_password},
+            content_type="application/json",
+            HTTP_AUTHORIZATION = f"Bearer {access_token}"
+        )
+
+        # Verifica se a exclusão foi bem-sucedida
+        self.assertEqual(response.status_code, 200)
+
+        # Verifica se a conta foi removida do banco de dados
+        self.assertFalse(
+            Account.objects.filter(
+                id=test_account.id
+            ).exists()
+        )
