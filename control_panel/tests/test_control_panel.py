@@ -33,7 +33,7 @@ class ControlPanelTestCase(TestCase): # Classe de testes do painel de controle
         return response.data.get("access_token")
         
 
-    def test_accounts_list(self):
+    def test_accounts_list(self):  # Testa a listagem de contas
 
         # Pega access_token chamando login_and_get_access_token
         access_token = self.login_and_get_access_token(
@@ -52,3 +52,22 @@ class ControlPanelTestCase(TestCase): # Classe de testes do painel de controle
         # Verifica se a requisição foi bem sucedida
         self.assertEqual(response.status_code, 200)
 
+    def test_account_detail(self): # Testa detalhes da conta
+
+        # Pega access_token passando default_email e default_password
+        access_token = self.login_and_get_access_token(
+            self.default_email,
+            self.default_password
+        )
+
+        # Verifica se access_token existe
+        self.assertTrue(access_token)
+
+        # Faz requisição para o endpoint que mostra os detalhes da conta
+        response = self.client.get(
+            f"/control-panel/account/{self.account.id}/detail/",
+            HTTP_AUTHORIZATION = f"Bearer {access_token}"
+        )
+
+        # Verifica se a requisição foi bem sucedida
+        self.assertEqual(response.status_code, 200)
