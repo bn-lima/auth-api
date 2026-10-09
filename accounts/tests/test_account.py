@@ -66,7 +66,7 @@ class AccountTestCase(TestCase):
     # Testa a solicitação inicial de cadastro.
     def test_request_account_registration(self):
 
-        email = "test_user@gmail.com" # E-mail utilizado no teste
+        email = "test_user2@gmail.com" # E-mail utilizado no teste
 
         response = self.request_account_registration(email) # Faz a requisição para iniciar o cadastro
 
@@ -82,19 +82,19 @@ class AccountTestCase(TestCase):
       # Testa a confirmação do cadastro da conta
     def test_confirm_account_registration(self):
 
-        email = "test_user@gmail.com" # E-mail utilizado no teste
+        email = "test_user2@gmail.com" # E-mail utilizado no teste
 
         self.request_account_registration(email) # Primeiro solicita o cadastro da conta
 
         pending_registration = self.get_pending_registration(email) # Recupera o cadastro pendente criado
         pending_registration_token = self.get_pending_registration_token(pending_registration) # Recupera o token associado ao cadastro pendente
-
+    
         self.assertTrue(pending_registration)  # Verifica se o cadastro pendente existe
         self.assertTrue(pending_registration_token) # Verifica se o token existe
 
         # Dados necessários para concluir o cadastro
         payload = {
-            "username": "test_user",
+            "username": "test_user2",
             "password": "12345678",
             "confirm_password": "12345678",
             "cpf": "00000000000",
@@ -114,8 +114,8 @@ class AccountTestCase(TestCase):
 
          # Dados enviados na requisição de login
         payload = {
-            "email": "test_uuser@gmail.com",
-            "password": "12345678"
+            "email": self.default_email,
+            "password": self.default_password
         }
 
         response = self.request_login_account(payload)
@@ -127,8 +127,8 @@ class AccountTestCase(TestCase):
 
         # Dados usados para realizar o login da conta
         payload = { 
-            "email": "test_uuser@gmail.com",
-            "password": "12345678"
+            "email": self.default_email,
+            "password": self.default_password
         }
 
          # Realiza o login e armazena a resposta da requisição
@@ -147,8 +147,8 @@ class AccountTestCase(TestCase):
     def test_logout_account(self):
         # Dados usados para realizar o login
         payload = {
-            "email": "test_uuser@gmail.com",
-            "password": "12345678"
+            "email": self.default_email,
+            "password": self.default_password
         }
 
         # Realiza o login e obtém os tokens
