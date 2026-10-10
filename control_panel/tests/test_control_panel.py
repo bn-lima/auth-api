@@ -105,3 +105,53 @@ class ControlPanelTestCase(TestCase): # Classe de testes do painel de controle
                 id=test_account.id
             ).exists()
         )
+
+    def test_update_account(self): # Testa a atualização de dados da conta
+
+        # Obtém o token de acesso da conta padrão
+        access_token = self.login_and_get_access_token(
+            self.default_email,
+            self.default_password
+        )
+
+         # Verifica se o token de acesso foi obtido
+        self.assertTrue(access_token)
+
+        # Define os dados que serão enviados para atualizar a conta
+        payload = {
+            "confirmation_password": self.default_password,
+            "username": "updated_account",
+            "cpf": "00000000000",
+            "phone": "11111111111"
+        }
+
+        # Envia uma requisição PATCH para atualizar a conta autenticada
+        response = self.client.patch(
+            f"/control-panel/account/{self.account.id}/update/",
+
+            data=payload,
+            content_type="application/json",
+            
+            HTTP_AUTHORIZATION = f"Bearer {access_token}",
+        )
+
+        # Verifica se a atualização foi realizada com sucesso
+        self.assertEqual(response.status_code, 200)
+
+        # Atualiza os dados da conta com os valores salvos no banco
+        self.account.refresh_from_db()
+
+        # Verifica se o nome de usuário foi atualizado
+        self.assertEqual(
+            payload["username"], self.account.username
+        )
+
+         # Verifica se o CPF foi atualizado
+        self.assertEqual(
+            payload["cpf"], self.account.cpf
+        )
+
+        # Verifica se o telefone foi atualizado
+        self.assertEqual(
+            payload["phone"], self.account.phone
+        )
