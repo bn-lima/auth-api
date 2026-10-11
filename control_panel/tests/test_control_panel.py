@@ -155,3 +155,36 @@ class ControlPanelTestCase(TestCase): # Classe de testes do painel de controle
         self.assertEqual(
             payload["phone"], self.account.phone
         )
+
+    def test_create_account(self): # Testa a criação de uma conta
+
+        access_token = self.login_and_get_access_token( # Faz login e pega access_token
+            self.default_email,
+            self.default_password
+        )
+
+        self.assertTrue(access_token) # Verifica se o token de acesso foi pego com sucesso
+
+        payload = { # Cria o payload para a criação da conta
+            "email": "test_account@gmail.com",
+            "username": "test_account",
+            "cpf": "11111111111",
+            "phone": "99999999999",
+            "confirmation_password": self.default_password,
+            "password": "12345678",
+            "confirm_password": "12345678"
+        }
+
+        response = self.client.post( # Faz requisição de criação de conta enviando o payload com os dados
+            "/control-panel/account/create/",
+            payload,
+            HTTP_AUTHORIZATION = f"Bearer {access_token}"
+        )
+
+        self.assertEqual(response.status_code, 201) # Verifica se a requisição foi bem sucessedida
+
+        self.assertTrue( # Verifica se a conta realmente foi criada
+            Account.objects.filter(
+                email = "test_account@gmail.com"
+            ).exists()
+        )

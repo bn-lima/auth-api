@@ -74,7 +74,6 @@ class CreateAccountSerializer(serializers.ModelSerializer): # Cria conta pelo pa
             "profile",
             "cpf",
             "phone",
-            "created_at",
             "is_staff",
             "confirmation_password",
             "password",
