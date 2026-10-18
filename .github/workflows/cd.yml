@@ -8,10 +8,90 @@ on:
 
 jobs:
     deploy:
+        # Só roda se o workflow CI terminou com sucesso
         if: ${{github.event.workflow_run.conclusion == 'success'}}
 
         runs-on: ubuntu-latest
 
         steps:
+
+            # Step 1: descobre qual deploy está no ar agora (alvo do rollback)
+            - name: Get Live Deploy ID
+              id: live
+
+              env:
+                API_KEY: ${{secrets.RENDER_API_KEY}}
+                SERVICE_ID: ${{secrets.RENDER_SERVICE_ID}}
+
+              run: |
+                # Lista só o deploy mais recente com status live
+                RESPONSE=$( \
+                curl --fail-with-body --silent --show-error \
+                "https://api.render.com/v1/services/${SERVICE_ID}/deploys?status=live&limit=1" \
+                -H "Authorization: Bearer $API_KEY")
+
+                # Pega o id do primeiro item do array
+                LIVE_DEPLOY_ID=$(echo "$RESPONSE" | jq -r '.[0].deploy.id')
+
+                # Disponibiliza o id para os próximos steps
+                echo "live_deploy_id=$LIVE_DEPLOY_ID" >> "$GITHUB_OUTPUT"
+
+            # Step 2: dispara o deploy novo
             - name: Deploy on Render
-              run: curl --fail --request POST '${{secrets.RENDER_HOOK_URL}}'
+              id: trigger
+              run: |
+                # Chama o deploy hook e guarda a resposta (JSON)
+                RESPONSE=$(curl --silent --show-error --fail --request POST "${{ secrets.RENDER_HOOK_URL }}")
+
+                # Extrai o id do deploy que acabou de ser criado
+                DEPLOY_ID=$(echo "$RESPONSE" | jq -r '.deploy.id')
+
+                # Disponibiliza o id para os próximos steps
+                echo "deploy_id=$DEPLOY_ID" >> "$GITHUB_OUTPUT"
+
+            # Step 3: acompanha o deploy novo e faz rollback se falhar
+            - name: Verify Deploy Status
+              env:
+                SERVICE_ID: ${{secrets.RENDER_SERVICE_ID}}
+                # Id gerado no step anterior (deploy novo)
+                DEPLOY_ID: ${{steps.trigger.outputs.deploy_id}}
+                # Id do deploy que estava no ar antes (alvo do rollback)
+                LIVE_ID: ${{steps.live.outputs.live_deploy_id}}
+                API_KEY: ${{secrets.RENDER_API_KEY}}
+              
+              run: |
+
+                # Tenta até 30 vezes
+                for i in {1..30}; do
+
+                  # Consulta o deploy novo na API do Render
+                  RESPONSE=$( \
+                  curl --fail-with-body --silent --show-error \
+                  https://api.render.com/v1/services/${SERVICE_ID}/deploys/${DEPLOY_ID} \
+                  -H "Authorization: Bearer $API_KEY")
+                
+                  # Extrai o campo status do JSON
+                  STATUS=$(echo "$RESPONSE" | jq -r '.status')
+
+                  case $STATUS in
+
+                  # Deploy no ar: termina com sucesso
+                  live) exit 0;;
+
+                  # Deploy falhou: pede rollback para o deploy anterior e termina com erro
+                  build_failed | canceled | pre_deploy_failed | update_failed) \
+                  curl --fail-with-body --silent --show-error \
+                  https://api.render.com/v1/services/${SERVICE_ID}/rollback \
+                  -H "Authorization: Bearer $API_KEY" \
+                  -H "content-type: application/json" \
+                  -d "{\"deployId\": \"$LIVE_ID\"}" \
+                  ; exit 1;;
+                  esac
+
+                  # Ainda em andamento: espera 20s e consulta de novo
+                  sleep 20
+                done
+
+                # Passou das 30 tentativas sem status final (não faz rollback)
+                echo 'Timeout'
+                exit 1
