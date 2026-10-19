@@ -31,11 +31,7 @@ jobs:
                 -H "Authorization: Bearer $API_KEY")
 
                 # Pega o id do primeiro item do array
-                LIVE_DEPLOY_ID=$(echo "$RESPONSE" | jq -r '.[0].deploy.id // empty')
-
-                if [ -z "$LIVE_DEPLOY_ID" ]; then
-                  LIVE_DEPLOY_ID=${{secrets.RENDER_DEPLOY_ID}}
-                fi
+                LIVE_DEPLOY_ID=$(echo "$RESPONSE" | jq -r '.[0].deploy.id')
 
                 # Disponibiliza o id para os próximos steps
                 echo "live_deploy_id=$LIVE_DEPLOY_ID" >> "$GITHUB_OUTPUT"
