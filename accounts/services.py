@@ -1,4 +1,4 @@
-from .models import Account, ResetPasswordToken, PendingRegistrationToken
+from .models import Account, ResetPasswordToken, PendingRegistrationToken, AccountDeletionToken
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.token_blacklist.models import OutstandingToken, BlacklistedToken
@@ -111,3 +111,26 @@ def invalidate_expired_sms_codes(account): # Desativa sms codes expirados de uma
 
 def is_phone_used(phone):
     return Account.objects.filter(phone=phone).exists()
+
+def expire_account_deletion_tokens(account): # Desativa tokens de exclusão de conta expirados 
+
+    AccountDeletionToken.objects.filter(
+        account=account,
+        active=True,
+        expired=False,
+        expires_at__lte=timezone.now()
+    ).update(
+        active=False,
+        expired=True
+    )
+
+def count_account_deletion_tokens(account): # Verifica se a conta possui 3 ou mais tokens de exclusão ativos
+
+    tokens = AccountDeletionToken.objects.filter(
+        account=account,
+        expired=False,
+        active=True,
+        expires_at__lte=timezone.now()
+    )
+
+    return tokens.count()

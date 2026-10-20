@@ -1,7 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework import permissions, status
 from rest_framework.response import Response
-from .serializers import LoginAccountSerializer, RefreshTokenSerializer, ResetPasswordRequestSerializer, ForgotPasswordSerializer, ResetPasswordSerializer, RequestAccountRegistrationSerializer, ConfirmAccountRegistrationSerializer, AddPhoneNumberSerializer, ConfirmPhoneNumberSerializer
+from .serializers import LoginAccountSerializer, RefreshTokenSerializer, ResetPasswordRequestSerializer, ForgotPasswordSerializer, ResetPasswordSerializer, RequestAccountRegistrationSerializer, ConfirmAccountRegistrationSerializer, AddPhoneNumberSerializer, ConfirmPhoneNumberSerializer, RequestAccountDeletionSerializer
 from .services import revoke_account_refresh_tokens
 
 class RequestAccountRegistrationView(APIView): # Solicita registro de conta
@@ -146,3 +146,18 @@ class ConfirmPhoneNumberView(APIView): # Confirma número de telefone
         serializer.save()
 
         return Response({"message": "phone updated successfully"}, status=status.HTTP_200_OK)
+
+class RequestAccountDeletionView(APIView): # Requisita exclusão de conta
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+
+        serializer = RequestAccountDeletionSerializer(
+            data={},
+            context={"authenticated_account":request.user}
+        )
+
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response({"message": "a confirmation email with a deletion link has been sent to your address"}, status=status.HTTP_200_OK)
