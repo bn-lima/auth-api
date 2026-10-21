@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import Account, PendingAccountRegistration, PendingRegistrationToken, AccountDeletionToken
 from .validators import PASSWORD_VALIDATOR, EMAIL_VALIDATOR, PHONE_VALIDATOR, SMS_CODE_VALIDATOR
-from .services import authenticate_account, generate_account_tokens, expire_account_reset_password_tokens, get_account_by_email, validate_reset_password_token, deactivate_all_account_reset_password_tokens, validate_registration_token, complete_registration, invalidate_expired_sms_codes, is_phone_used, expire_account_deletion_tokens, count_account_deletion_tokens
+from .services import authenticate_account, generate_account_tokens, expire_account_reset_password_tokens, get_account_by_email, validate_reset_password_token, deactivate_all_account_reset_password_tokens, validate_registration_token, complete_registration, invalidate_expired_sms_codes, is_phone_used, expire_account_deletion_tokens, count_account_deletion_tokens,validate_deletion_token
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 from .models import ResetPasswordToken, SMSCode
@@ -332,3 +332,28 @@ class RequestAccountDeletionSerializer(serializers.Serializer): # Requisita excl
         )
 
         return token.key # Retorna a chave do token
+
+class ConfirmAccountDeletionSerializer(serializers.Serializer): # Serializer responsável por validar deletion token e deletar a conta do usuário
+
+    def validate(self, data):
+        str_deletion_token = self.context.get("deletion_token") # Pega a string do deletion token passado no context
+
+        deletion_token = validate_deletion_token(str_deletion_token) # Valida a string de deletion token
+
+        if not deletion_token: # Retorna erro caso não seja válido
+            raise serializers.ValidationError("invalid deletion_token")
+
+        authenticated_account = self.context.get("authenticated_account")
+
+        if authenticated_account != deletion_token.account:
+            raise serializers.ValidationError("The deletion token does not belong to the authenticated account")
+
+        data["deletion_token"] = deletion_token # Adiciona deletion token validado nos dados validados
+        return data
+
+    def save(self, **kwargs):
+        deletion_token = self.validated_data.get("deletion_token") # Pega deletion token dos dados validados
+
+        deletion_token.account.delete() # Deleta a conta associada ao deletion token
+
+        return True

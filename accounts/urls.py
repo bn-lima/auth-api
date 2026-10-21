@@ -1,5 +1,5 @@
 from django.urls import path, include
-from .views import LoginAccountView, RefreshTokenView, LogoutAccountView, ResetPasswordRequestView, ForgotPasswordView, ResetPasswordView, IsAuthenticated, RequestAccountRegistrationView, ConfirmAccountRegistrationView, AddPhoneNumberView, ConfirmPhoneNumberView, RequestAccountDeletionView
+from .views import LoginAccountView, RefreshTokenView, LogoutAccountView, ResetPasswordRequestView, ForgotPasswordView, ResetPasswordView, IsAuthenticated, RequestAccountRegistrationView, ConfirmAccountRegistrationView, AddPhoneNumberView, ConfirmPhoneNumberView, RequestAccountDeletionView, ConfirmAccountDeletionView
 
 urlpatterns = [
     path("register/", include([
@@ -26,6 +26,7 @@ urlpatterns = [
     ])),
 
     path("delete/", include([
-        path("request/", RequestAccountDeletionView.as_view(), name="request_account_deletion")
+        path("request/", RequestAccountDeletionView.as_view(), name="request_account_deletion"), # Solicita exclusão de conta
+        path("confirm/<str:deletion_token>/", ConfirmAccountDeletionView.as_view(), name="delete_account") # Deleta a conta do usuário
     ]))
 ]

@@ -26,7 +26,7 @@ def send_registration_request_email(email, registration_token): # Envia email pa
 
 def send_account_deletion_email(username, email, deletion_token): # Envia token de exclusão de conta por email
     # MUDAR A URL PARA PRODUÇÃO
-    url = f"http://localhost:8000/account/delete/{deletion_token}/"
+    url = f"http://localhost:8000/account/delete/confirm/{deletion_token}/"
 
     email_message = EmailMessage(
         subject="Confirm your account deletion",
