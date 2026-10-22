@@ -104,7 +104,14 @@ class ResetPasswordView(APIView): # View responsável por mudar a senha de uma c
         if not reset_token:
             return Response({"detail": "reset_token is required as a query parameter"}, status=status.HTTP_400_BAD_REQUEST)
 
-        serializer = ResetPasswordSerializer(data=request.data, context={"reset_token":reset_token})
+        serializer = ResetPasswordSerializer(
+            data=request.data,
+            context={
+                "reset_token":reset_token,
+                "authenticated_account": request.user
+            }
+        )
+        
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
