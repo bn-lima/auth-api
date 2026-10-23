@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Account, ResetPasswordToken, PendingAccountRegistration, PendingRegistrationToken, SMSCode
+from .models import Account, ResetPasswordToken, PendingAccountRegistration, PendingRegistrationToken, SMSCode, AccountDeletionToken
 
 @admin.register(Account)
 class AccountAdmin(admin.ModelAdmin):
@@ -27,4 +27,10 @@ class PendingRegistrationTokenAdmin(admin.ModelAdmin):
 class SMSCodeAdmin(admin.ModelAdmin):
     list_display = ("account__email", "code", "phone", "created_at", "expires_at", "active", "expired")
     search_fields = ("account__email", "code", "phone", "created_at", "expires_at")
+    list_filter = ("active", "expired")
+
+@admin.register(AccountDeletionToken)
+class AccountDeletionTokenAdmin(admin.ModelAdmin):
+    list_display = ("account__email", "created_at", "expires_at", "key", "active", "expired")
+    search_fields = ("account__email", "created_at", "expires_at", "key")
     list_filter = ("active", "expired")

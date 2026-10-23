@@ -1,4 +1,4 @@
-from .models import Account, ResetPasswordToken, PendingRegistrationToken
+from .models import Account, ResetPasswordToken, PendingRegistrationToken, AccountDeletionToken
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.token_blacklist.models import OutstandingToken, BlacklistedToken
@@ -111,3 +111,52 @@ def invalidate_expired_sms_codes(account): # Desativa sms codes expirados de uma
 
 def is_phone_used(phone):
     return Account.objects.filter(phone=phone).exists()
+
+def expire_account_deletion_tokens(account): # Desativa tokens de exclusão de conta expirados 
+
+    AccountDeletionToken.objects.filter(
+        account=account,
+        active=True,
+        expired=False,
+        expires_at__lte=timezone.now()
+    ).update(
+        active=False,
+        expired=True
+    )
+
+def count_account_deletion_tokens(account): # Verifica se a conta possui 3 ou mais tokens de exclusão ativos
+
+    tokens = AccountDeletionToken.objects.filter(
+        account=account,
+        expired=False,
+        active=True,
+        expires_at__gte=timezone.now()
+    )
+
+    return tokens.count()
+
+def validate_deletion_token(str_deletion_token): # Valida str_deletion_token
+
+    try: # Tenta transformar str_deletion_token em uuid válido
+        uuid_deletion_token = uuid.UUID(str_deletion_token)
+    except ValueError:
+        return None
+
+    try: # Tenta pega um objeto de AccountDeletionToken com a chave igual a uuid_deletion_token
+        deletion_token = AccountDeletionToken.objects.get(key=uuid_deletion_token)
+    except AccountDeletionToken.DoesNotExist:
+        return None
+
+    # Verifica se deletion_token está expirado ou desativado
+    if deletion_token.expired or not deletion_token.active:
+        return None
+
+    # Verifica se o deletion_token expirou; caso afirmativo, desativa-o e marca-o como expirado
+    if deletion_token.expires_at < timezone.now():
+        deletion_token.expired=True
+        deletion_token.active=False
+        deletion_token.save(update_fields=["expired", "active"])
+        return None
+
+    # Retorna deletion_token
+    return deletion_token 

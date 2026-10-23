@@ -131,3 +131,14 @@ class SMSCode(models.Model):
 
     def __str__(self):
         return f"{self.account.email} - {self.code}"
+
+class AccountDeletionToken(models.Model): # Token de exclusão de conta
+    account = models.ForeignKey(Account, on_delete=models.CASCADE, related_name="deletation_tokens")
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(default=get_expiration_time)
+    key = models.UUIDField(default=uuid.uuid4, unique=True)
+    active = models.BooleanField(default=True)
+    expired = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"{self.account.email} - {self.key}"
