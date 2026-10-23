@@ -107,8 +107,7 @@ class ResetPasswordView(APIView): # View responsável por mudar a senha de uma c
         serializer = ResetPasswordSerializer(
             data=request.data,
             context={
-                "reset_token":reset_token,
-                "authenticated_account": request.user
+                "reset_token":reset_token
             }
         )
         

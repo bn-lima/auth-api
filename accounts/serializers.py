@@ -215,12 +215,7 @@ class ResetPasswordSerializer(serializers.Serializer): # Serializer responsável
 
         if not reset_token: # Verifica se o token é válido
             raise serializers.ValidationError("invalid reset_token")
-
-        authenticated_account = self.context.get("authenticated_account")
-
-        if authenticated_account != reset_token.account:
-            raise serializers.ValidationError("The deletion token does not belong to the authenticated account")
-
+        
         new_password = data.get("new_password") # Pega a nova senha
 
         if new_password != data.get("confirm_new_password"): # Verifica se as senhas são iguais
