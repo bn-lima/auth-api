@@ -1,5 +1,5 @@
 from django.test import TestCase
-from accounts.models import PendingAccountRegistration, PendingRegistrationToken, Account
+from accounts.models import PendingAccountRegistration, PendingRegistrationToken, Account, AccountDeletionToken
 
 class AccountTestCase(TestCase):
 
@@ -50,6 +50,13 @@ class AccountTestCase(TestCase):
             {
                 "refresh_token": refresh_token
             }
+        )
+
+    def request_account_deletion(self, access_token):
+
+        return self.client.post(
+            "/account/delete/request/",
+            HTTP_AUTHORIZATION = f"Bearer {access_token}"
         )
 
     # Busca no banco de dados um cadastro pendente pelo e-mail
@@ -198,3 +205,28 @@ class AccountTestCase(TestCase):
             response.status_code,
             200
         )
+
+    def test_request_account_deletion(self):
+
+        payload = {
+            "email": self.default_email,
+            "password": self.default_password
+        }
+
+        login_response = self.request_login_account(payload)
+
+        self.assertEqual(login_response.status_code, 200)
+
+        access_token = login_response.data["access_token"]
+
+        self.assertTrue(access_token)
+
+        response = self.request_account_deletion(access_token)
+
+        self.assertEqual(response.status_code, 200)
+
+        deletion_token = AccountDeletionToken.objects.filter(
+            account=self.account
+        ).first()
+
+        self.assertTrue(deletion_token)
