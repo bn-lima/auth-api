@@ -343,11 +343,6 @@ class ConfirmAccountDeletionSerializer(serializers.Serializer): # Serializer res
         if not deletion_token: # Retorna erro caso não seja válido
             raise serializers.ValidationError("invalid deletion_token")
 
-        authenticated_account = self.context.get("authenticated_account")
-
-        if authenticated_account != deletion_token.account:
-            raise serializers.ValidationError("The deletion token does not belong to the authenticated account")
-
         data["deletion_token"] = deletion_token # Adiciona deletion token validado nos dados validados
         return data
 

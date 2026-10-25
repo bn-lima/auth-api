@@ -181,7 +181,6 @@ class ConfirmAccountDeletionView(APIView): # Deleta a conta do usuário
             data={},
             context={
                 "deletion_token": deletion_token,
-                "authenticated_account": request.user
             }
         )
 

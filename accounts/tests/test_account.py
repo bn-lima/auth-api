@@ -208,25 +208,84 @@ class AccountTestCase(TestCase):
 
     def test_request_account_deletion(self):
 
+        # Prepara os dados para login
         payload = {
             "email": self.default_email,
             "password": self.default_password
         }
 
+        # Realiza o login
         login_response = self.request_login_account(payload)
 
+        # Verifica se o login foi realizado com sucesso
         self.assertEqual(login_response.status_code, 200)
 
+        # Obtém o token de acesso
         access_token = login_response.data["access_token"]
 
+        # Verifica se o token de acesso foi retornado
         self.assertTrue(access_token)
 
+        # Solicita a exclusão da conta usando o token de acesso
         response = self.request_account_deletion(access_token)
 
+        # Verifica se a solicitação de exclusão foi realizada com sucesso
         self.assertEqual(response.status_code, 200)
 
+        # Busca o token de exclusão associado à conta
         deletion_token = AccountDeletionToken.objects.filter(
             account=self.account
         ).first()
 
+        # Verifica se o token de exclusão foi criado
         self.assertTrue(deletion_token)
+
+    def test_confirm_account_deletion(self):
+        
+            # Prepara os dados para login
+        payload = {
+            "email": self.default_email,
+            "password": self.default_password
+        }
+
+        # Realiza o login
+        login_response = self.request_login_account(payload)
+
+        # Verifica se o login foi realizado com sucesso
+        self.assertEqual(login_response.status_code, 200)
+
+        # Obtém o token de acesso
+        access_token = login_response.data["access_token"]
+
+        # Verifica se o token de acesso foi retornado
+        self.assertTrue(access_token)
+
+        # Solicita a exclusão da conta
+        request_deletion_response = self.request_account_deletion(access_token)
+
+        # Verifica se a solicitação de exclusão foi realizada com sucesso   
+        self.assertEqual(
+            request_deletion_response.status_code,
+            200
+        )
+
+        # Busca o token de exclusão associado à conta
+        deletion_token = AccountDeletionToken.objects.filter(
+            account=self.account
+        ).first()
+
+        # Verifica se o token de exclusão foi criado
+        self.assertTrue(deletion_token)
+
+        # Confirma a exclusão da conta usando o token
+        response = self.client.delete(
+            f"/account/delete/confirm/{deletion_token.key}/",
+        )
+
+        # Verifica se a conta foi excluída com sucesso
+        self.assertEqual(response.status_code, 204)
+
+        # Verifica se a conta não existe mais no banco de dados
+        self.assertFalse(
+            Account.objects.filter(id=self.account.id).first()
+        )
