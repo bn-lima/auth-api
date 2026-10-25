@@ -1,20 +1,35 @@
 from rest_framework.views import APIView
 from rest_framework import permissions, status
 from rest_framework.response import Response
-from .serializers import RegisterAccountSerializer, LoginAccountSerializer, RefreshTokenSerializer, ResetPasswordRequestSerializer, ForgotPasswordSerializer, ResetPasswordSerializer
+from .serializers import LoginAccountSerializer, RefreshTokenSerializer, ResetPasswordRequestSerializer, ForgotPasswordSerializer, ResetPasswordSerializer, RequestAccountRegistrationSerializer, ConfirmAccountRegistrationSerializer, AddPhoneNumberSerializer, ConfirmPhoneNumberSerializer, RequestAccountDeletionSerializer, ConfirmAccountDeletionSerializer
 from .services import revoke_account_refresh_tokens
 
-class RegisterAccountView(APIView): # Registra um usuário
+class RequestAccountRegistrationView(APIView): # Solicita registro de conta
     permission_classes = [permissions.AllowAny]
 
     def post(self, request, *args, **kwargs):
 
-        serializer = RegisterAccountSerializer(data=request.data)
+        serializer = RequestAccountRegistrationSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
-        return Response({"message": "account created successfully"}, status=status.HTTP_201_CREATED)
+        return Response({"message": "A verification link has been sent to your email"}, status=status.HTTP_200_OK)
 
+class ConfirmAccountRegistrationView(APIView): # Confirma registro de conta
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request, registration_token, *args, **kwargs):
+        
+        serializer = ConfirmAccountRegistrationSerializer(
+            data=request.data,
+            context= {"registration_token": registration_token}
+        )
+
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response({"account created successfully"}, status=status.HTTP_201_CREATED)
+        
 class LoginAccountView(APIView): # Loga um usuário
     permission_classes = [permissions.AllowAny]
 
@@ -89,8 +104,87 @@ class ResetPasswordView(APIView): # View responsável por mudar a senha de uma c
         if not reset_token:
             return Response({"detail": "reset_token is required as a query parameter"}, status=status.HTTP_400_BAD_REQUEST)
 
-        serializer = ResetPasswordSerializer(data=request.data, context={"reset_token":reset_token})
+        serializer = ResetPasswordSerializer(
+            data=request.data,
+            context={
+                "reset_token":reset_token
+            }
+        )
+        
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
         return Response({"message": "password updated successfully"}, status=status.HTTP_200_OK)
+
+class IsAuthenticated(APIView): # Testa se o usuário está autenticado
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        return Response({"message": "you are authenticated"})
+
+class AddPhoneNumberView(APIView): # Envia código de sms
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+
+        serializer = AddPhoneNumberSerializer(
+            data=request.data,
+            context={
+                "authenticated_account": request.user
+            }
+        )
+
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response({"message": "an sms code was sent to you"}, status=status.HTTP_200_OK)
+
+class ConfirmPhoneNumberView(APIView): # Confirma número de telefone
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+
+        serializer = ConfirmPhoneNumberSerializer(
+            data=request.data,
+            context={"authenticated_account":request.user}
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response({"message": "phone updated successfully"}, status=status.HTTP_200_OK)
+
+class RequestAccountDeletionView(APIView): # Requisita exclusão de conta
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+
+        serializer = RequestAccountDeletionSerializer(
+            data={},
+            context={"authenticated_account":request.user}
+        )
+
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response({"message": "a confirmation email with a deletion link has been sent to your address"}, status=status.HTTP_200_OK)
+
+class ConfirmAccountDeletionView(APIView): # Deleta a conta do usuário
+
+    permission_classes = [permissions.AllowAny]
+
+    def delete(self, request, deletion_token, *args, **kwargs):
+
+        if not deletion_token: # Retorna erro caso o token não for passado
+            return Response({"detail": "deletion_token is required in the url path"}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = ConfirmAccountDeletionSerializer(
+            data={},
+            context={
+                "deletion_token": deletion_token,
+            }
+        )
+
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response(status=status.HTTP_204_NO_CONTENT)

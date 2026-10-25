@@ -3,9 +3,12 @@ from django.contrib.auth.models import AbstractUser
 import uuid
 from django.utils import timezone
 from datetime import timedelta
+from .validators import CPF_VALIDATOR, PHONE_VALIDATOR, SMS_CODE_VALIDATOR
 
 class Account(AbstractUser): # Modelo de usuário
     profile = models.ImageField(default="accounts/default.png", blank=True, null=True)
+    cpf = models.CharField(max_length=11, null=True, blank=True, validators=[CPF_VALIDATOR], unique=True)
+    phone = models.CharField(max_length=11, null=True, blank=True, validators=[PHONE_VALIDATOR], unique=True)
     email = models.EmailField(max_length=250, unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -16,17 +19,70 @@ class Account(AbstractUser): # Modelo de usuário
         return f'{self.email} - {self.username}'
 
     def has_too_many_reset_tokens(self): # Verifica se a conta tem 3 ou mais tokens de reset de senha ativos
-        if self.reset_password_tokens.filter(
+        return self.reset_password_tokens.filter(
             active=True,
             expired=False,
             expires_at__gte=timezone.now()
-        ).count() >=3:
+        ).count() >=3
+
+    def has_too_many_sms_codes(self): # Verifica se a conta tem 3 ou mais códigos de sms ativos
+        return  self.sms_codes.filter(
+            active=True,
+            expired=False
+        ).count() >=3
+ 
+def get_pending_registration_expiration(): # Pega a data de expiração para PendingAccountRegistration
+    return timezone.now() + timedelta(hours=24)
+
+def get_expiration_time(): # Pega a data de expiração para tokens
+    return timezone.now() + timedelta(minutes=15)
+
+class PendingAccountRegistration(models.Model): # Modelo que representa um registro de conta pendente
+    email = models.EmailField(max_length=250, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(default=get_pending_registration_expiration)
+
+    def expire_registration_tokens(self): # Desativa tokens de registro expirados
+
+        self.registration_tokens.filter( # Filtra tokens ativos que estão expirados
+            expires_at__lte=timezone.now(),
+            active=True,
+            expired=False
+        ).update( # Desativa os tokens filtrados
+            active=False,
+            expired=True
+        )
+
+    def count_active_registration_tokens(self): # Conta os tokens de registro ativos
+
+        tokens = self.registration_tokens.filter( # Filtra tokens ativos
+            expires_at__gte=timezone.now(),
+            expired=False,
+            active=True
+        )
+
+        return tokens.count() # Retorna a quantidade de tokens
+
+    def delete_if_expired(self): # Verifica se o registro está expirado e deleta
+        if self.expires_at < timezone.now():
+            self.delete()
             return True
         return False
 
-def get_expiration_time():
-    return timezone.now() + timedelta(minutes=15)
+    def __str__(self):
+        return str(self.email)
 
+class PendingRegistrationToken(models.Model):
+    pending_registration = models.ForeignKey(PendingAccountRegistration, on_delete=models.CASCADE, related_name="registration_tokens")
+    key = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(default=get_expiration_time)
+    expired = models.BooleanField(default=False)
+    active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return str(self.key)
+    
 class ResetPasswordToken(models.Model): # Token de redefinição de senha
     account = models.ForeignKey(Account, on_delete=models.CASCADE, related_name="reset_password_tokens")
     created_at = models.DateTimeField(auto_now_add=True)
@@ -42,6 +98,47 @@ class ResetPasswordToken(models.Model): # Token de redefinição de senha
 
     def is_expired(self): # Verifica se o token expirou
         return self.expires_at < timezone.now()
+
+    def __str__(self):
+        return f"{self.account.email} - {self.key}"
+
+class SMSCode(models.Model):
+
+    account = models.ForeignKey(Account, on_delete=models.CASCADE, related_name="sms_codes")
+    phone = models.CharField(max_length=11, null=True, blank=True, validators=[PHONE_VALIDATOR])
+    code = models.CharField(null=True, blank=True, validators=[SMS_CODE_VALIDATOR])
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(default=get_expiration_time)
+    active = models.BooleanField(default=True)
+    expired = models.BooleanField(default=False)
+
+    def set_code(self):
+        from .sms import get_sms_code # Importado dentro do método para evitar importação circular
+
+        sms_code = get_sms_code() # Gera um novo código SMS
+
+        while not sms_code:
+            sms_code = get_sms_code() # Gera outro código caso o código gerado já esteja em uso
+
+        self.code = sms_code # Define o código no objeto
+
+    def save(self, *args, **kwargs):
+        # Gera um código caso o objeto ainda não possua um
+        if not self.code:
+            self.set_code()
+
+        return super().save(*args, **kwargs) # Salva o objeto no banco de dados
+
+    def __str__(self):
+        return f"{self.account.email} - {self.code}"
+
+class AccountDeletionToken(models.Model): # Token de exclusão de conta
+    account = models.ForeignKey(Account, on_delete=models.CASCADE, related_name="deletation_tokens")
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(default=get_expiration_time)
+    key = models.UUIDField(default=uuid.uuid4, unique=True)
+    active = models.BooleanField(default=True)
+    expired = models.BooleanField(default=False)
 
     def __str__(self):
         return f"{self.account.email} - {self.key}"

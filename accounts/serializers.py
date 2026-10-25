@@ -1,44 +1,116 @@
 from rest_framework import serializers
-from .models import Account
-from .validators import PASSWORD_VALIDATOR
-from .services import authenticate_account, generate_account_tokens, expire_account_reset_password_tokens, get_account_by_email, validate_reset_password_token, deactivate_all_account_reset_password_tokens
+from .models import Account, PendingAccountRegistration, PendingRegistrationToken, AccountDeletionToken
+from .validators import PASSWORD_VALIDATOR, EMAIL_VALIDATOR, PHONE_VALIDATOR, SMS_CODE_VALIDATOR
+from .services import authenticate_account, generate_account_tokens, expire_account_reset_password_tokens, get_account_by_email, validate_reset_password_token, deactivate_all_account_reset_password_tokens, validate_registration_token, complete_registration, invalidate_expired_sms_codes, is_phone_used, expire_account_deletion_tokens, count_account_deletion_tokens,validate_deletion_token
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
-from .models import ResetPasswordToken
-from .email import send_test_email
+from .models import ResetPasswordToken, SMSCode
+from .email import send_password_reset_email, send_registration_request_email,send_account_deletion_email
+from django.db import transaction
+from .sms import send_sms_code, get_valid_account_sms_code, deactivate_account_sms_codes
 
-class RegisterAccountSerializer(serializers.ModelSerializer): # Serializer responsável por registrar usuário
-    # Campo de confirmação de senha
-    confirm_password = serializers.CharField(max_length=128, validators=[PASSWORD_VALIDATOR], write_only=True)
+class RequestAccountRegistrationSerializer(serializers.Serializer): # ializer responsável por solicitar registro de conta
+    email = serializers.CharField(
+        max_length=250,
+        validators=[EMAIL_VALIDATOR],
+        required=True
+    )
 
+    def validate(self, data):
+
+        if Account.objects.filter(email=data.get("email")).exists(): # Verifica se já existe uma conta com esse email
+            raise serializers.ValidationError("An account with this email already exists")
+
+        pending_registration, created = PendingAccountRegistration.objects.get_or_create( # Pega ou cria pending_registration com o email passado
+            email=data.get("email")
+        )
+
+        if not created: # Verifica se o registro foi criado agora
+
+            if pending_registration.delete_if_expired(): # Deleta o registro se estiver expirado
+                raise serializers.ValidationError("The registration request has expired. Please request a new registration")
+            
+            pending_registration.expire_registration_tokens() # Desativa tokens de registro expirados
+
+            if pending_registration.count_active_registration_tokens() >= 3: # Verifica se o registro possui 3 ou mais tokens ativos
+                raise serializers.ValidationError("Maximum of 3 active registration tokens reached for this email address")
+
+        data["pending_registration"] = pending_registration
+        return data
+
+    def save(self, **kwargs):
+        pending_registration = self.validated_data.get("pending_registration") # Pega pending_registration dos dados validados
+
+        registration_token = PendingRegistrationToken.objects.create( # Cria token de registro associado a pending_registration
+            pending_registration=pending_registration,
+        )
+
+        send_registration_request_email( # Envia link de registro por email
+            pending_registration.email,
+            registration_token.key
+        )
+
+        return registration_token
+
+class ConfirmAccountRegistrationSerializer(serializers.ModelSerializer): # Confirma o registro de uma conta
+    confirm_password = serializers.CharField( # Campo para confirmação de senha 
+        max_length=250,
+        required=True,
+        write_only=True,
+        validators=[PASSWORD_VALIDATOR]
+    )
     class Meta:
         model = Account
-        fields = ("username", "email", "password", "confirm_password", "profile")
+        exclude = ("created_at", "email", "phone", "groups", "user_permissions")
 
-        extra_kwargs = {
+        extra_kwargs = { # Adiciona validador de senha no campo password
             "password": {
-                "validators": [PASSWORD_VALIDATOR] # Define um validator no campo password
+                "validators":[PASSWORD_VALIDATOR]
             }
         }
 
     def validate(self, data):
-        if data.get("password") != data.get("confirm_password"): # Verifica se as senhas são iguais
+        # Pega registration_token do context
+        str_registration_token = self.context.get("registration_token")
+
+        # Verifica se o token passado é válido
+        registration_token = validate_registration_token(str_registration_token)
+
+        # Retorna erro caso seja inválido
+        if not registration_token:
+            raise serializers.ValidationError("invalid registration_token")
+        
+        # Verifica se password e confirm_password são iguais
+        if data.get("password") != data.get("confirm_password"):
             raise serializers.ValidationError("passwords do not match")
 
+        # Verifica se existe um usuário com o mesmo username
+        if Account.objects.filter(username=data.get("username")).exists():
+            raise serializers.ValidationError("an account with this username already exists")
+        
+        # Adiciona registration_token nos dados validados
+        data["registration_token"] = registration_token
         return data
 
-    def create(self, validated_data):   
-        # Removo password e confirm_password dos dados validados
-        password = validated_data.pop("password")
-        validated_data.pop("confirm_password")
+    @transaction.atomic()
+    def create(self, validated_data):
+        registration_token_id = validated_data.pop("registration_token") # Remove registration_token dos dados validados e armazena na variável registration_token_id
+        password = validated_data.pop("password") # Remove password dos dados validados e adiciona na variável password
+        validated_data.pop("confirm_password") # Remove confirm_password dos dados validados
 
-        account = Account.objects.create( # Cria usuário sem senha
-            **validated_data
+        # Busca o token de registro e seu pending_registration relacionado  
+        registration_token = PendingRegistrationToken.objects.select_for_update(
+        ).select_related("pending_registration").get(id=registration_token_id.id)
+
+        account = Account.objects.create( # Cria conta sem senha
+            **validated_data,
+            email=registration_token.pending_registration.email
         )
 
-        # Define senha de forma segura e salva o usuário criado
-        account.set_password(password)
-        account.save()
+        account.set_password(password) # Define senha criptografada
+        account.save(update_fields=["password"]) # Salva a conta com a senha definida
+
+        complete_registration(registration_token) # Finaliza a confirmação de registro
 
         return account
 
@@ -102,7 +174,7 @@ class ResetPasswordRequestSerializer(serializers.Serializer): # Cria reset passw
         account = validated_data.get("account")
 
         reset_token = ResetPasswordToken.objects.create(account=account) # Cria objeto reset token
-        send_test_email(account.email, reset_token.key) # Envia email de recuperação
+        send_password_reset_email(account.email, reset_token.key) # Envia email de recuperação
 
         return reset_token
 
@@ -128,7 +200,7 @@ class ForgotPasswordSerializer(serializers.Serializer): # Cria reset password e 
 
         reset_token = ResetPasswordToken.objects.create(account=account) # Cria token de reset de senha
 
-        send_test_email(account.email, reset_token.key) # Envia o token para o email do usuário
+        send_password_reset_email(account.email, reset_token.key) # Envia o token para o email do usuário
 
         return reset_token
 
@@ -143,7 +215,7 @@ class ResetPasswordSerializer(serializers.Serializer): # Serializer responsável
 
         if not reset_token: # Verifica se o token é válido
             raise serializers.ValidationError("invalid reset_token")
-
+        
         new_password = data.get("new_password") # Pega a nova senha
 
         if new_password != data.get("confirm_new_password"): # Verifica se as senhas são iguais
@@ -166,3 +238,117 @@ class ResetPasswordSerializer(serializers.Serializer): # Serializer responsável
         deactivate_all_account_reset_password_tokens(account)
 
         return account
+
+class AddPhoneNumberSerializer(serializers.Serializer): # Envia código de sms
+    phone = serializers.CharField(
+        required=True,
+        validators=[PHONE_VALIDATOR]
+    )
+
+    def validate(self, data):
+        authenticated_account = self.context.get("authenticated_account")
+
+        if is_phone_used(data.get("phone")): # Verifica se o número está sendo usado por alguma conta
+            raise serializers.ValidationError("an account with this phone number already exists")
+
+        invalidate_expired_sms_codes(authenticated_account) # Invalida sms_codes expirados
+
+        if authenticated_account.has_too_many_sms_codes(): # Verifica se a conta possui muitos códigos de sms ativos
+            raise serializers.ValidationError("You have too many SMS codes. Please try again later")
+
+        data["authenticated_account"] = authenticated_account
+        return data
+
+    def create(self, validated_data):
+        authenticated_account = validated_data.get("authenticated_account")
+
+        sms = SMSCode.objects.create( # Cria objeto SMSCode relacionado ao usuário logado
+            account=authenticated_account,
+            phone=validated_data.get("phone")
+        )
+
+        send_sms_code( # Envia código de sms
+            sms.code,
+            validated_data.get("phone")
+        )
+
+        return SMSCode.code
+
+class ConfirmPhoneNumberSerializer(serializers.Serializer): # Confirma número de telefone e define ao usuário logado
+    verification_code = serializers.CharField( # Código de verificação enviado por sms
+        required=True,
+        validators=[SMS_CODE_VALIDATOR]
+    )
+
+    def validate(self, data):
+        authenticated_account = self.context.get("authenticated_account") # Pega o usuário logado pelo context
+
+        invalidate_expired_sms_codes(authenticated_account) # Invalida todos os sms_codes expirados
+
+        sms_code =  get_valid_account_sms_code(data.get("verification_code"), authenticated_account) # Verifica se o sms_code passado é válido
+
+        if not sms_code: # Retorna erro caso não seja válido
+            raise serializers.ValidationError("invalid verification_code")
+
+        data["sms_code"] = sms_code # Adiciona sms_code nos dados validados
+        return data
+
+    def save(self, **kwargs):
+        sms_code = self.validated_data.get("sms_code")
+        account = sms_code.account # Pega a conta relacionada ao sms_code
+
+        account.phone = sms_code.phone # Define o número de telefone relacionado ao sms_code para o usuário
+        account.save(update_fields=["phone"])
+
+        deactivate_account_sms_codes(account) # Desativa todos os sms_codes relacionados ao usuário
+
+        return account
+
+class RequestAccountDeletionSerializer(serializers.Serializer): # Requisita exclusão de conta
+
+    def validate(self, data):
+        authenticated_account = self.context.get("authenticated_account")
+
+        expire_account_deletion_tokens(authenticated_account) # Desativa os tokens de exclusão expirados do usuário
+
+        if count_account_deletion_tokens(authenticated_account) >= 3: # Verifica se o usuário tem 3 ou mais tokens de exclusão ativos
+            raise serializers.ValidationError("you have too many active deletion tokens. Try again later")
+
+        data["account"] = authenticated_account # Adiciona a conta do usuário nos dados validados
+        return data
+    
+
+    def save(self, **kwargs):
+        account = self.validated_data.get("account") # Pega o usuário dos dados validados
+
+        token = AccountDeletionToken.objects.create( # Cria token de exclusão associado ao usuário
+            account=account
+        )
+
+        send_account_deletion_email( # Envia token no email do usuário
+            account.username,
+            account.email,
+            token.key
+        )
+
+        return token.key # Retorna a chave do token
+
+class ConfirmAccountDeletionSerializer(serializers.Serializer): # Serializer responsável por validar deletion token e deletar a conta do usuário
+
+    def validate(self, data):
+        str_deletion_token = self.context.get("deletion_token") # Pega a string do deletion token passado no context
+
+        deletion_token = validate_deletion_token(str_deletion_token) # Valida a string de deletion token
+
+        if not deletion_token: # Retorna erro caso não seja válido
+            raise serializers.ValidationError("invalid deletion_token")
+
+        data["deletion_token"] = deletion_token # Adiciona deletion token validado nos dados validados
+        return data
+
+    def save(self, **kwargs):
+        deletion_token = self.validated_data.get("deletion_token") # Pega deletion token dos dados validados
+
+        deletion_token.account.delete() # Deleta a conta associada ao deletion token
+
+        return True
