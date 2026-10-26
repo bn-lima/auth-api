@@ -92,6 +92,17 @@ jobs:
                   sleep 20
                 done
 
-                # Passou das 30 tentativas sem status final (não faz rollback)
-                echo 'Timeout'
+                echo "Timeout"
+
+                curl --silent --show-error --fail-with-body --request POST \
+                https://api.render.com/v1/services/${SERVICE_ID}/deploys/${DEPLOY_ID}/cancel \
+                -H "Authorization: Bearer $API_KEY" || true
+
+                curl --silent --fail-with-body --show-error --request POST \
+                https://api.render.com/v1/services/${SERVICE_ID}/rollback \
+                -H "Authorization: Bearer $API_KEY" \
+                -H "content-type: application/json" \
+                -d "{\"deployId\": \"$LIVE_ID\"}"
+                
+                # Passou das 30 tentativas sem status final
                 exit 1
