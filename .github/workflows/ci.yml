@@ -39,4 +39,4 @@ jobs:
                 POSTGRES_PORT: ${{secrets.POSTGRES_PORT}}
 
             - run: docker compose up --build -d
-            - run: python manage.py test
+            - run: docker compose exec -T api python manage.py test
